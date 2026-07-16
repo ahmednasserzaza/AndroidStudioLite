@@ -1,0 +1,111 @@
+package com.worldcup.androidstudiolite.designsystem.theme
+
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+
+@Immutable
+data class AslColorScheme(
+    val primary: Color,
+    val onPrimary: Color,
+    val primaryContainer: Color,
+    val onPrimaryContainer: Color,
+    val secondary: Color,
+    val onSecondary: Color,
+    val secondaryContainer: Color,
+    val onSecondaryContainer: Color,
+    val tertiary: Color,
+    val onTertiary: Color,
+    val tertiaryContainer: Color,
+    val onTertiaryContainer: Color,
+    val error: Color,
+    val onError: Color,
+    val errorContainer: Color,
+    val onErrorContainer: Color,
+    val background: Color,
+    val onBackground: Color,
+    val surface: Color,
+    val onSurface: Color,
+    val surfaceDim: Color,
+    val surfaceBright: Color,
+    val surfaceContainerLowest: Color,
+    val surfaceContainerLow: Color,
+    val surfaceContainer: Color,
+    val surfaceContainerHigh: Color,
+    val surfaceContainerHighest: Color,
+    val surfaceVariant: Color,
+    val onSurfaceVariant: Color,
+    val surfaceTint: Color,
+    val outline: Color,
+    val outlineVariant: Color,
+    val canvas: Color,
+    val panel: Color,
+    val divider: Color,
+    val popover: Color,
+    val inputBackground: Color,
+    val syntax: AslSyntaxColors,
+)
+
+@Immutable
+data class AslSyntaxColors(
+    val keyword: Color,
+    val string: Color,
+    val function: Color,
+    val annotation: Color,
+    val comment: Color,
+    val number: Color,
+    val plain: Color,
+)
+
+val AslDarkColors = AslColorScheme(
+    primary = Color(0xFF60F99E),
+    onPrimary = Color(0xFF00391C),
+    primaryContainer = Color(0xFF3DDC84),
+    onPrimaryContainer = Color(0xFF005C31),
+    secondary = Color(0xFFA8C8FF),
+    onSecondary = Color(0xFF003061),
+    secondaryContainer = Color(0xFF114784),
+    onSecondaryContainer = Color(0xFF8CB6FB),
+    tertiary = Color(0xFFFFD7A5),
+    onTertiary = Color(0xFF452B00),
+    tertiaryContainer = Color(0xFFFFB33A),
+    onTertiaryContainer = Color(0xFF6E4700),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    background = Color(0xFF131313),
+    onBackground = Color(0xFFE5E2E1),
+    surface = Color(0xFF131313),
+    onSurface = Color(0xFFE5E2E1),
+    surfaceDim = Color(0xFF131313),
+    surfaceBright = Color(0xFF393939),
+    surfaceContainerLowest = Color(0xFF0E0E0E),
+    surfaceContainerLow = Color(0xFF1C1B1B),
+    surfaceContainer = Color(0xFF201F1F),
+    surfaceContainerHigh = Color(0xFF2A2A2A),
+    surfaceContainerHighest = Color(0xFF353534),
+    surfaceVariant = Color(0xFF353534),
+    onSurfaceVariant = Color(0xFFBBCBBC),
+    surfaceTint = Color(0xFF43E188),
+    outline = Color(0xFF869587),
+    outlineVariant = Color(0xFF3C4A3F),
+    canvas = Color(0xFF121212),
+    panel = Color(0xFF1A1C1E),
+    divider = Color(0xFF2C2E31),
+    popover = Color(0xFF252729),
+    inputBackground = Color(0xFF0A0A0A),
+    syntax = AslSyntaxColors(
+        keyword = Color(0xFFCF8E6D),
+        string = Color(0xFF6A8759),
+        function = Color(0xFFFFC66D),
+        annotation = Color(0xFFBBB529),
+        comment = Color(0xFF808080),
+        number = Color(0xFFA8C8FF),
+        plain = Color(0xFFE5E2E1),
+    ),
+)
+
+val LocalAslColors = staticCompositionLocalOf { AslDarkColors }
+
+val LocalContentColor = staticCompositionLocalOf { Color(0xFFE5E2E1) }
