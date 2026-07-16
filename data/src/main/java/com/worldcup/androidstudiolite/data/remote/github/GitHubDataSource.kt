@@ -79,9 +79,8 @@ class GitHubDataSource(
             }
             if (status in 500..599) {
                 throw DomainException.GitHub(
-                    "GitHub rejected the request (HTTP $status). If this keeps happening, " +
-                        "your GitHub account may be flagged — open github.com in a browser " +
-                        "and check for a warning banner, or contact GitHub support.",
+                    "GitHub's API is having problems right now (HTTP $status). " +
+                        "Check githubstatus.com and try again in a few minutes.",
                 )
             }
             val message = runCatching {
@@ -129,11 +128,9 @@ class GitHubDataSource(
                 when {
                     status == 401 -> "GitHub rejected this token"
                     status in 500..599 ->
-                        "GitHub is refusing this account's API access (HTTP $status). " +
-                            "This usually means the account is flagged: open github.com in " +
-                            "a browser, look for a warning banner on your profile, and " +
-                            "contact GitHub support (support.github.com). A new token won't " +
-                            "help until the account is cleared."
+                        "GitHub's API is having problems right now (HTTP $status). " +
+                            "Your token is probably fine — check githubstatus.com and " +
+                            "try connecting again in a few minutes."
                     else -> "GitHub error $status"
                 },
             )
