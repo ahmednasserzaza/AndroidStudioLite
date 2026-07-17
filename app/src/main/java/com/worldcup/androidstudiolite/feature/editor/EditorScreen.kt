@@ -29,12 +29,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worldcup.androidstudiolite.designsystem.components.appbar.AslTopBar
 import com.worldcup.androidstudiolite.designsystem.components.basic.AslHorizontalDivider
 import com.worldcup.androidstudiolite.designsystem.components.buttons.AslDangerButton
-import com.worldcup.androidstudiolite.designsystem.components.buttons.AslFab
 import com.worldcup.androidstudiolite.designsystem.components.buttons.AslGhostButton
 import com.worldcup.androidstudiolite.designsystem.components.buttons.AslIconButton
 import com.worldcup.androidstudiolite.designsystem.components.buttons.AslPrimaryButton
@@ -49,6 +50,7 @@ import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
 import com.worldcup.androidstudiolite.feature.base.CollectEffects
 import com.worldcup.androidstudiolite.feature.editor.ui.CodeEditorField
+import com.worldcup.androidstudiolite.feature.editor.ui.EditorSymbolBar
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -71,6 +73,26 @@ fun EditorScreen(
     if (state.projectName == null) {
         NoProjectPlaceholder(onNavigateToProjects)
         return
+    }
+
+    val active = state.activeFile
+    var fieldValue by remember(active?.path) {
+        mutableStateOf(TextFieldValue(active?.content ?: ""))
+    }
+    val editorValue = if (active == null || fieldValue.text == active.content) {
+        fieldValue
+    } else {
+        TextFieldValue(
+            text = active.content,
+            selection = TextRange(changedRegionEnd(fieldValue.text, active.content)),
+        ).also { fieldValue = it }
+    }
+
+    fun insertSnippet(snippet: String) {
+        val selection = editorValue.selection
+        val newText = editorValue.text.replaceRange(selection.min, selection.max, snippet)
+        fieldValue = TextFieldValue(newText, TextRange(selection.min + snippet.length))
+        listener.onEditContent(newText)
     }
 
     Box(Modifier.fillMaxSize().background(AslTheme.colors.background)) {
@@ -122,12 +144,16 @@ fun EditorScreen(
                             .fillMaxHeight(),
                     )
                 }
-                val active = state.activeFile
                 if (active != null) {
                     CodeEditorField(
-                        text = active.content,
+                        value = editorValue,
                         fileName = active.name,
-                        onTextChange = listener::onEditContent,
+                        onValueChange = { newValue ->
+                            fieldValue = newValue
+                            if (newValue.text != active.content) {
+                                listener.onEditContent(newValue.text)
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                     )
                 } else {
@@ -142,23 +168,22 @@ fun EditorScreen(
                     }
                 }
             }
-        }
 
-        if (WindowInsets.isImeVisible) {
-            val focusManager = LocalFocusManager.current
-            val keyboard = LocalSoftwareKeyboardController.current
-            AslFab(
-                AslIcons.KeyboardHide,
-                onClick = {
-                    focusManager.clearFocus()
-                    keyboard?.hide()
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .imePadding()
-                    .padding(AslTheme.spacing.md),
-                contentDescription = "Done — hide keyboard",
-            )
+            if (active != null && WindowInsets.isImeVisible) {
+                val focusManager = LocalFocusManager.current
+                val keyboard = LocalSoftwareKeyboardController.current
+                EditorSymbolBar(
+                    canUndo = state.canUndo,
+                    canRedo = state.canRedo,
+                    onUndo = listener::onUndo,
+                    onRedo = listener::onRedo,
+                    onInsert = ::insertSnippet,
+                    onHideKeyboard = {
+                        focusManager.clearFocus()
+                        keyboard?.hide()
+                    },
+                )
+            }
         }
 
         AslSnackbarHost(snackBar)
@@ -288,6 +313,19 @@ private fun FileActionDialog(target: FileActionTarget, listener: EditorInteracti
             }
         }
     }
+}
+
+private fun changedRegionEnd(old: String, new: String): Int {
+    val minLen = minOf(old.length, new.length)
+    var prefix = 0
+    while (prefix < minLen && old[prefix] == new[prefix]) prefix++
+    var suffix = 0
+    while (suffix < minLen - prefix &&
+        old[old.length - 1 - suffix] == new[new.length - 1 - suffix]
+    ) {
+        suffix++
+    }
+    return new.length - suffix
 }
 
 @Composable

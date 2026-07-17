@@ -39,4 +39,6 @@ object AslIcons {
     val Schedule = R.drawable.ic_schedule
     val KeyboardHide = R.drawable.ic_keyboard_hide
     val ContentCopy = R.drawable.ic_content_copy
+    val Undo = R.drawable.ic_undo
+    val Redo = R.drawable.ic_redo
 }

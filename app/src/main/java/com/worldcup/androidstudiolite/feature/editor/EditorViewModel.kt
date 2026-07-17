@@ -31,6 +31,11 @@ class EditorViewModel(
 
     private var fullTree: List<FileNode> = emptyList()
 
+    private val undoStacks = mutableMapOf<String, ArrayDeque<String>>()
+    private val redoStacks = mutableMapOf<String, ArrayDeque<String>>()
+    private var lastEditPath: String? = null
+    private var lastEditAtMs = 0L
+
     init {
         viewModelScope.launch {
             combine(
@@ -45,6 +50,8 @@ class EditorViewModel(
                         projectName = project?.name,
                         openFiles = openFiles,
                         activeFile = openFiles.firstOrNull { f -> f.path == activePath },
+                        canUndo = undoStacks[activePath]?.isNotEmpty() == true,
+                        canRedo = redoStacks[activePath]?.isNotEmpty() == true,
                     )
                 }
             }
@@ -178,6 +185,8 @@ class EditorViewModel(
 
     private fun closeTabsUnder(path: String) {
         val remaining = workspace.openFiles.value.filterNot { it.path.startsWith(path) }
+        undoStacks.keys.removeAll { it.startsWith(path) }
+        redoStacks.keys.removeAll { it.startsWith(path) }
         workspace.setOpenFiles(remaining)
         if (workspace.activeFilePath.value?.startsWith(path) == true) {
             workspace.setActiveFile(remaining.firstOrNull()?.path)
@@ -196,6 +205,8 @@ class EditorViewModel(
         }
         val index = files.indexOf(closing)
         val remaining = files - closing
+        undoStacks.remove(path)
+        redoStacks.remove(path)
         workspace.setOpenFiles(remaining)
         if (workspace.activeFilePath.value == path) {
             workspace.setActiveFile(
@@ -206,9 +217,42 @@ class EditorViewModel(
 
     override fun onEditContent(newText: String) {
         val activePath = workspace.activeFilePath.value ?: return
+        val current = workspace.openFiles.value.firstOrNull { it.path == activePath } ?: return
+        if (current.content == newText) return
+        val now = System.currentTimeMillis()
+        if (activePath != lastEditPath || now - lastEditAtMs > UNDO_COALESCE_MS) {
+            val stack = undoStacks.getOrPut(activePath) { ArrayDeque() }
+            stack.addLast(current.content)
+            if (stack.size > UNDO_LIMIT) stack.removeFirst()
+            redoStacks[activePath]?.clear()
+        }
+        lastEditPath = activePath
+        lastEditAtMs = now
+        setActiveContent(activePath, newText)
+    }
+
+    override fun onUndo() {
+        val activePath = workspace.activeFilePath.value ?: return
+        val current = workspace.openFiles.value.firstOrNull { it.path == activePath } ?: return
+        val previous = undoStacks[activePath]?.removeLastOrNull() ?: return
+        redoStacks.getOrPut(activePath) { ArrayDeque() }.addLast(current.content)
+        lastEditPath = null
+        setActiveContent(activePath, previous)
+    }
+
+    override fun onRedo() {
+        val activePath = workspace.activeFilePath.value ?: return
+        val current = workspace.openFiles.value.firstOrNull { it.path == activePath } ?: return
+        val next = redoStacks[activePath]?.removeLastOrNull() ?: return
+        undoStacks.getOrPut(activePath) { ArrayDeque() }.addLast(current.content)
+        lastEditPath = null
+        setActiveContent(activePath, next)
+    }
+
+    private fun setActiveContent(path: String, newText: String) {
         workspace.setOpenFiles(
             workspace.openFiles.value.map {
-                if (it.path == activePath) it.copy(content = newText, dirty = true) else it
+                if (it.path == path) it.copy(content = newText, dirty = true) else it
             },
         )
     }
@@ -251,5 +295,10 @@ class EditorViewModel(
     private fun relativeTo(path: String): String {
         val root = workspace.currentProject.value?.path ?: return path
         return path.removePrefix("$root/")
+    }
+
+    private companion object {
+        const val UNDO_COALESCE_MS = 800L
+        const val UNDO_LIMIT = 100
     }
 }

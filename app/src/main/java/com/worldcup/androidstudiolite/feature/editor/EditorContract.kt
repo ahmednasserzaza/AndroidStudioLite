@@ -9,6 +9,8 @@ data class EditorUiState(
     val visibleTree: List<TreeRow> = emptyList(),
     val openFiles: List<OpenFileState> = emptyList(),
     val activeFile: OpenFileState? = null,
+    val canUndo: Boolean = false,
+    val canRedo: Boolean = false,
     val buildRunning: Boolean = false,
     val fileAction: FileActionTarget? = null,
 )
@@ -33,6 +35,8 @@ interface EditorInteractionListener {
     fun onSelectTab(path: String)
     fun onCloseTab(path: String)
     fun onEditContent(newText: String)
+    fun onUndo()
+    fun onRedo()
     fun onSaveAll()
     fun onRun()
 }

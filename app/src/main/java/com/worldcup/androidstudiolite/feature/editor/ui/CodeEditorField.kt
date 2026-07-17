@@ -41,6 +41,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Constraints
@@ -52,9 +53,9 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun CodeEditorField(
-    text: String,
+    value: TextFieldValue,
     fileName: String,
-    onTextChange: (String) -> Unit,
+    onValueChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val verticalScroll = rememberScrollState()
@@ -143,8 +144,8 @@ fun CodeEditorField(
             val viewportWidth = maxWidth
             Box(Modifier.horizontalScroll(horizontalScroll)) {
                 BasicTextField(
-                    value = text,
-                    onValueChange = onTextChange,
+                    value = value,
+                    onValueChange = onValueChange,
                     textStyle = codeStyle,
                     cursorBrush = SolidColor(colors.primary),
                     visualTransformation = transformation,
