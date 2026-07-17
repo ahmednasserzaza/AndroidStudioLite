@@ -1,6 +1,7 @@
 package com.worldcup.androidstudiolite.feature.assistant
 
 import androidx.lifecycle.viewModelScope
+import com.worldcup.androidstudiolite.domain.ai.ConnectAiProviderUseCase
 import com.worldcup.androidstudiolite.domain.ai.GetAiProvidersUseCase
 import com.worldcup.androidstudiolite.domain.ai.ObserveAgentConfigUseCase
 import com.worldcup.androidstudiolite.domain.ai.StreamAssistantReplyUseCase
@@ -17,13 +18,21 @@ class AssistantViewModel(
     private val streamReply: StreamAssistantReplyUseCase,
     private val observeAgentConfig: ObserveAgentConfigUseCase,
     private val getProviders: GetAiProvidersUseCase,
+    private val connectProvider: ConnectAiProviderUseCase,
     private val session: AssistantSession,
     private val workspace: WorkspaceSession,
 ) : BaseViewModel<AssistantUiState, AssistantEffect>(AssistantUiState()),
     AssistantInteractionListener {
 
     init {
-        updateState { it.copy(messages = session.messages.value) }
+        val providers = getProviders()
+        updateState {
+            it.copy(
+                messages = session.messages.value,
+                providers = providers,
+                connectProviderId = providers.firstOrNull()?.id,
+            )
+        }
         viewModelScope.launch {
             observeAgentConfig().collect { config ->
                 val label = config?.let { c ->
@@ -52,7 +61,7 @@ class AssistantViewModel(
         val text = currentState().input.trim()
         if (text.isEmpty() || currentState().streaming) return
         if (!currentState().connected) {
-            sendNewEffect(AssistantEffect.NavigateToAiSettings)
+            openConnectSheet()
             return
         }
 
@@ -76,7 +85,7 @@ class AssistantViewModel(
             onError = { error ->
                 updateState { it.copy(streaming = false, streamingText = "") }
                 if (error is DomainException.Auth || error is DomainException.Validation) {
-                    sendNewEffect(AssistantEffect.NavigateToAiSettings)
+                    openConnectSheet()
                 }
             },
         )
@@ -93,5 +102,57 @@ class AssistantViewModel(
         updateState { it.copy(messages = emptyList(), streamingText = "") }
     }
 
-    override fun onAgentChipClick() = sendNewEffect(AssistantEffect.NavigateToAiSettings)
+    override fun onAgentChipClick() {
+        if (currentState().connected) {
+            sendNewEffect(AssistantEffect.NavigateToAiSettings)
+        } else {
+            openConnectSheet()
+        }
+    }
+
+    override fun onConnectAgentClick(providerId: String) {
+        updateState {
+            it.copy(connectSheetVisible = true, connectProviderId = providerId, connectError = null)
+        }
+    }
+
+    override fun onConnectKeyChange(key: String) {
+        updateState { it.copy(connectKeyInput = key, connectError = null) }
+    }
+
+    override fun onConnectSubmit() {
+        val providerId = currentState().connectProviderId ?: return
+        val key = currentState().connectKeyInput
+        if (key.isBlank() || currentState().connecting) return
+        updateState { it.copy(connecting = true, connectError = null) }
+        tryToExecute(
+            callee = { connectProvider(providerId, key) },
+            onSuccess = {
+                updateState {
+                    it.copy(connecting = false, connectSheetVisible = false, connectKeyInput = "")
+                }
+                showSnackBar("Agent connected — ask away")
+            },
+            onError = { error ->
+                updateState {
+                    it.copy(
+                        connecting = false,
+                        connectError = error.message ?: "This key was rejected",
+                    )
+                }
+            },
+        )
+    }
+
+    override fun onConnectDismiss() {
+        if (currentState().connecting) return
+        updateState { it.copy(connectSheetVisible = false) }
+    }
+
+    private fun openConnectSheet() {
+        val providerId = currentState().connectProviderId
+            ?: currentState().providers.firstOrNull()?.id
+            ?: return
+        onConnectAgentClick(providerId)
+    }
 }

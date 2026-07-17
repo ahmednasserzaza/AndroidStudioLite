@@ -94,6 +94,7 @@ fun VcsScreen(
                         AslPrimaryButton(
                             "Commit & Push",
                             onClick = listener::onCommitAndPush,
+                            enabled = state.commitMessage.isNotBlank(),
                             loading = state.busy,
                             leadingIconRes = AslIcons.Upload,
                             modifier = Modifier.weight(1f),

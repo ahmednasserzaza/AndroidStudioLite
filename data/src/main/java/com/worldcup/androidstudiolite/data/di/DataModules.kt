@@ -4,6 +4,7 @@ import android.util.Log
 import com.worldcup.androidstudiolite.data.local.fs.ProjectFileSystemDataSource
 import com.worldcup.androidstudiolite.data.local.prefs.SettingsDataSource
 import com.worldcup.androidstudiolite.data.remote.ai.AiAgentDataSource
+import com.worldcup.androidstudiolite.data.remote.ai.ClaudeAgentDataSource
 import com.worldcup.androidstudiolite.data.remote.ai.GeminiAgentDataSource
 import com.worldcup.androidstudiolite.data.remote.github.GitHubDataSource
 import com.worldcup.androidstudiolite.data.repository.AiAgentRepositoryImpl
@@ -57,6 +58,7 @@ val networkModule = module {
 
     single { GitHubDataSource(client = get()) { get<SettingsDataSource>().githubToken } }
     single { GeminiAgentDataSource(client = get()) } bind AiAgentDataSource::class
+    single { ClaudeAgentDataSource(client = get()) } bind AiAgentDataSource::class
 }
 
 val localModule = module {
