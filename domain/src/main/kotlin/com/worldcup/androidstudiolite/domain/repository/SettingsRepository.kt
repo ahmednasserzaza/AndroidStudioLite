@@ -1,6 +1,5 @@
 package com.worldcup.androidstudiolite.domain.repository
 
-import com.worldcup.androidstudiolite.entities.AgentConfig
 import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
@@ -12,12 +11,6 @@ interface SettingsRepository {
 
     fun privateRepos(): Flow<Boolean>
     suspend fun setPrivateRepos(enabled: Boolean)
-
-    fun agentConfig(): Flow<AgentConfig?>
-    suspend fun setAgentConfig(config: AgentConfig)
-
-    suspend fun apiKey(providerId: String): String
-    suspend fun setApiKey(providerId: String, key: String)
 
     fun onboardingDone(): Flow<Boolean>
     suspend fun setOnboardingDone(done: Boolean)

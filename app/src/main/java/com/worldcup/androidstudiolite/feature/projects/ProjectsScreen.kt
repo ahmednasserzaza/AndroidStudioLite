@@ -24,19 +24,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.worldcup.androidstudiolite.designsystem.components.appbar.AslTopBar
 import com.worldcup.androidstudiolite.designsystem.components.buttons.AslGhostButton
 import com.worldcup.androidstudiolite.designsystem.components.buttons.AslIconButton
 import com.worldcup.androidstudiolite.designsystem.components.buttons.AslPrimaryButton
 import com.worldcup.androidstudiolite.designsystem.components.buttons.AslTextButton
 import com.worldcup.androidstudiolite.designsystem.components.cards.AslCard
-import com.worldcup.androidstudiolite.designsystem.components.cards.AslInnerCard
 import com.worldcup.androidstudiolite.designsystem.components.chips.AslChip
 import com.worldcup.androidstudiolite.designsystem.components.chips.AslStatus
 import com.worldcup.androidstudiolite.designsystem.components.chips.AslStatusChip
 import com.worldcup.androidstudiolite.designsystem.components.dialogs.AslDialog
 import com.worldcup.androidstudiolite.designsystem.components.snackbar.AslSnackbarHost
 import com.worldcup.androidstudiolite.designsystem.components.textfields.AslTextField
-import com.worldcup.androidstudiolite.designsystem.foundation.AslIcon
 import com.worldcup.androidstudiolite.designsystem.foundation.AslText
 import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
@@ -50,8 +49,7 @@ import java.util.Date
 fun ProjectsScreen(
     viewModel: ProjectsViewModel,
     onNavigateToEditor: () -> Unit,
-    onNavigateToGitHubSettings: () -> Unit,
-    onNavigateToAiSettings: () -> Unit,
+    onNavigateToSettings: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackBar by viewModel.snackBar.collectAsState()
@@ -60,57 +58,67 @@ fun ProjectsScreen(
     CollectEffects(viewModel.effect) { effect ->
         when (effect) {
             ProjectsEffect.NavigateToEditor -> onNavigateToEditor()
-            ProjectsEffect.NavigateToGitHubSettings -> onNavigateToGitHubSettings()
-            ProjectsEffect.NavigateToAiSettings -> onNavigateToAiSettings()
+            ProjectsEffect.NavigateToGitHubSettings -> onNavigateToSettings()
         }
     }
 
-    Box(Modifier.fillMaxSize().background(AslTheme.colors.background)) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                horizontal = AslTheme.spacing.gutter,
-                vertical = AslTheme.spacing.lg,
-            ),
-            verticalArrangement = Arrangement.spacedBy(AslTheme.spacing.md),
-        ) {
-            item { WelcomeCard(state, listener) }
-            item { ConfigureAiCard(state, listener) }
-            item {
-                Row(
-                    Modifier.fillMaxWidth().padding(top = AslTheme.spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    AslText(
-                        "Recent Projects",
-                        style = AslTheme.typography.uiHeader,
-                        modifier = Modifier.weight(1f),
-                    )
-                    AslTextButton("New Project", onClick = { listener.onShowCreateDialog(true) })
-                }
-            }
-            if (!state.loading && state.projects.isEmpty()) {
+    Column(Modifier.fillMaxSize().background(AslTheme.colors.background)) {
+        AslTopBar(
+            title = "Studio Lite",
+            actions = {
+                AslIconButton(
+                    AslIcons.Settings,
+                    onClick = onNavigateToSettings,
+                    contentDescription = "Settings",
+                )
+            },
+        )
+        Box(Modifier.weight(1f)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    horizontal = AslTheme.spacing.gutter,
+                    vertical = AslTheme.spacing.lg,
+                ),
+                verticalArrangement = Arrangement.spacedBy(AslTheme.spacing.md),
+            ) {
+                item { WelcomeCard(state, listener) }
                 item {
-                    AslText(
-                        "No projects yet — create one to get started.",
-                        color = AslTheme.colors.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = AslTheme.spacing.lg),
-                    )
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = AslTheme.spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AslText(
+                            "Recent Projects",
+                            style = AslTheme.typography.uiHeader,
+                            modifier = Modifier.weight(1f),
+                        )
+                        AslTextButton("New Project", onClick = { listener.onShowCreateDialog(true) })
+                    }
+                }
+                if (!state.loading && state.projects.isEmpty()) {
+                    item {
+                        AslText(
+                            "No projects yet — create one to get started.",
+                            color = AslTheme.colors.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = AslTheme.spacing.lg),
+                        )
+                    }
+                }
+                items(state.projects, key = { it.id }) { project ->
+                    ProjectCard(project, listener)
                 }
             }
-            items(state.projects, key = { it.id }) { project ->
-                ProjectCard(project, listener)
+
+            AslSnackbarHost(snackBar)
+
+            if (state.showCreateDialog) {
+                CreateProjectDialog(
+                    creating = state.creating,
+                    onDismiss = { listener.onShowCreateDialog(false) },
+                    onCreate = listener::onCreateProject,
+                )
             }
-        }
-
-        AslSnackbarHost(snackBar)
-
-        if (state.showCreateDialog) {
-            CreateProjectDialog(
-                creating = state.creating,
-                onDismiss = { listener.onShowCreateDialog(false) },
-                onCreate = listener::onCreateProject,
-            )
         }
     }
 }
@@ -135,49 +143,6 @@ private fun WelcomeCard(state: ProjectsUiState, listener: ProjectsInteractionLis
                 leadingIconRes = AslIcons.GitHub,
                 modifier = Modifier.fillMaxWidth(),
             )
-        }
-    }
-}
-
-@Composable
-private fun ConfigureAiCard(state: ProjectsUiState, listener: ProjectsInteractionListener) {
-    AslCard(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AslText("Configure AI", style = AslTheme.typography.title, modifier = Modifier.weight(1f))
-            AslIconButton(
-                AslIcons.Settings,
-                onClick = listener::onConfigureAi,
-                tint = AslTheme.colors.primary,
-            )
-        }
-        AslText(
-            "Enable intelligent code completion and refactoring.",
-            color = AslTheme.colors.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(AslTheme.spacing.md))
-        AslInnerCard(Modifier.fillMaxWidth(), onClick = listener::onConfigureAi) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(AslTheme.spacing.md),
-            ) {
-                AslIcon(
-                    AslIcons.Sparkle,
-                    tint = if (state.aiConnected) AslTheme.colors.secondary
-                    else AslTheme.colors.onSurfaceVariant,
-                )
-                Column(Modifier.weight(1f)) {
-                    AslText(
-                        state.aiProviderName ?: "No agent connected",
-                        style = AslTheme.typography.uiHeader,
-                    )
-                    AslText(
-                        if (state.aiConnected) "Connected" else "Tap to connect",
-                        style = AslTheme.typography.uiLabelSmall,
-                        color = AslTheme.colors.onSurfaceVariant,
-                    )
-                }
-                AslIcon(AslIcons.ChevronRight, tint = AslTheme.colors.onSurfaceVariant)
-            }
         }
     }
 }

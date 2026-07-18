@@ -31,6 +31,7 @@ fun EditorSymbolBar(
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onInsert: (String) -> Unit,
+    onToggleComment: () -> Unit,
     onHideKeyboard: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -54,6 +55,8 @@ fun EditorSymbolBar(
                 tint = historyTint(canRedo),
                 contentDescription = "Redo",
             )
+            KeyDivider()
+            SymbolKey("//", onClick = onToggleComment)
             KeyDivider()
             Row(
                 Modifier
@@ -126,6 +129,7 @@ private val SYMBOL_KEYS = listOf(
     ">" to ">",
     "[" to "[",
     "]" to "]",
+    "->" to " -> ",
     "+" to "+",
     "-" to "-",
     "*" to "*",

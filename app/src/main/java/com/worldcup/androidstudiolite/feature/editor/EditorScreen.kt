@@ -1,7 +1,13 @@
 package com.worldcup.androidstudiolite.feature.editor
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,11 +33,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worldcup.androidstudiolite.designsystem.components.appbar.AslTopBar
 import com.worldcup.androidstudiolite.designsystem.components.basic.AslHorizontalDivider
@@ -70,6 +80,9 @@ fun EditorScreen(
         }
     }
 
+    // Save-on-navigate: flush pending edits when the app is backgrounded.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { listener.onFlushSave() }
+
     if (state.projectName == null) {
         NoProjectPlaceholder(onNavigateToProjects)
         return
@@ -95,6 +108,16 @@ fun EditorScreen(
         listener.onEditContent(newText)
     }
 
+    fun toggleComment() {
+        val current = active ?: return
+        val updated = toggleLineComment(editorValue, current.name)
+        fieldValue = updated
+        listener.onEditContent(updated.text)
+    }
+
+    val configuration = LocalConfiguration.current
+    val wide = configuration.screenWidthDp >= 600
+
     Box(Modifier.fillMaxSize().background(AslTheme.colors.background)) {
         Column(Modifier.fillMaxSize().imePadding()) {
             AslTopBar(
@@ -109,11 +132,6 @@ fun EditorScreen(
                         tint = if (state.treeVisible) AslTheme.colors.primary
                         else AslTheme.colors.onSurfaceVariant,
                         contentDescription = "Toggle file tree",
-                    )
-                    AslIconButton(
-                        AslIcons.Save,
-                        onClick = listener::onSaveAll,
-                        contentDescription = "Save all",
                     )
                     AslIconButton(
                         AslIcons.Play,
@@ -134,38 +152,44 @@ fun EditorScreen(
                 onClose = { listener.onCloseTab(it.id) },
             )
 
-            Row(Modifier.weight(1f)) {
-                if (state.treeVisible) {
-                    FileTreePanel(
-                        state = state,
-                        listener = listener,
-                        modifier = Modifier
-                            .width(220.dp)
-                            .fillMaxHeight(),
-                    )
-                }
-                if (active != null) {
-                    CodeEditorField(
-                        value = editorValue,
-                        fileName = active.name,
-                        onValueChange = { newValue ->
-                            fieldValue = newValue
-                            if (newValue.text != active.content) {
-                                listener.onEditContent(newValue.text)
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    Box(
-                        Modifier.weight(1f).fillMaxHeight().background(AslTheme.colors.canvas),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        AslText(
-                            "Open a file from the tree",
-                            color = AslTheme.colors.onSurfaceVariant,
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                Row(Modifier.fillMaxSize()) {
+                    if (wide && state.treeVisible) {
+                        FileTreePanel(
+                            state = state,
+                            listener = listener,
+                            modifier = Modifier.width(240.dp).fillMaxHeight(),
                         )
                     }
+                    if (active != null) {
+                        CodeEditorField(
+                            value = editorValue,
+                            fileName = active.name,
+                            onValueChange = { newValue ->
+                                val adjusted = autoIndentNewline(editorValue, newValue)
+                                fieldValue = adjusted
+                                if (adjusted.text != active.content) {
+                                    listener.onEditContent(adjusted.text)
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        Box(
+                            Modifier.weight(1f).fillMaxHeight().background(AslTheme.colors.canvas),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            AslText(
+                                "Open a file from the tree",
+                                color = AslTheme.colors.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                // Overlay drawer on narrow (phone) windows.
+                if (!wide) {
+                    FileTreeDrawer(state = state, listener = listener)
                 }
             }
 
@@ -178,6 +202,7 @@ fun EditorScreen(
                     onUndo = listener::onUndo,
                     onRedo = listener::onRedo,
                     onInsert = ::insertSnippet,
+                    onToggleComment = ::toggleComment,
                     onHideKeyboard = {
                         focusManager.clearFocus()
                         keyboard?.hide()
@@ -190,6 +215,42 @@ fun EditorScreen(
 
         state.fileAction?.let { target ->
             FileActionDialog(target, listener)
+        }
+    }
+}
+
+@Composable
+private fun FileTreeDrawer(
+    state: EditorUiState,
+    listener: EditorInteractionListener,
+) {
+    Box(Modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visible = state.treeVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .clickable(
+                        interactionSource = null,
+                        indication = null,
+                        onClick = listener::onToggleTree,
+                    ),
+            )
+        }
+        AnimatedVisibility(
+            visible = state.treeVisible,
+            enter = slideInHorizontally { -it },
+            exit = slideOutHorizontally { -it },
+        ) {
+            FileTreePanel(
+                state = state,
+                listener = listener,
+                modifier = Modifier.width(280.dp).fillMaxHeight(),
+            )
         }
     }
 }
@@ -248,7 +309,7 @@ private fun FileTreePanel(
                 }
             }
         }
-        androidx.compose.foundation.layout.Box(
+        Box(
             Modifier
                 .fillMaxHeight()
                 .width(1.dp)
@@ -327,6 +388,68 @@ private fun changedRegionEnd(old: String, new: String): Int {
     }
     return new.length - suffix
 }
+
+/**
+ * When a single newline is typed, carry the previous line's leading whitespace onto
+ * the new line, plus one indent step after an opening `{` or `(`.
+ */
+private fun autoIndentNewline(old: TextFieldValue, new: TextFieldValue): TextFieldValue {
+    if (new.text.length != old.text.length + 1) return new
+    if (!new.selection.collapsed) return new
+    val insertPos = new.selection.start - 1
+    if (insertPos < 0 || insertPos >= new.text.length || new.text[insertPos] != '\n') return new
+
+    val lineStart = new.text.lastIndexOf('\n', insertPos - 1) + 1
+    val prevLine = new.text.substring(lineStart, insertPos)
+    val indent = prevLine.takeWhile { it == ' ' || it == '\t' }
+    val trimmed = prevLine.trimEnd()
+    val extra = if (trimmed.endsWith("{") || trimmed.endsWith("(")) INDENT_STEP else ""
+    val insertion = indent + extra
+    if (insertion.isEmpty()) return new
+
+    val newText = new.text.substring(0, insertPos + 1) + insertion + new.text.substring(insertPos + 1)
+    return TextFieldValue(newText, TextRange(insertPos + 1 + insertion.length))
+}
+
+/** Comments or uncomments every line touched by the current selection. */
+private fun toggleLineComment(value: TextFieldValue, fileName: String): TextFieldValue {
+    val token = lineCommentToken(fileName)
+    val text = value.text
+    val selMin = value.selection.min
+    val selMax = value.selection.max
+
+    val blockStart = text.lastIndexOf('\n', selMin - 1) + 1
+    val blockEnd = text.indexOf('\n', selMax).let { if (it == -1) text.length else it }
+    val block = text.substring(blockStart, blockEnd)
+
+    val lines = block.split('\n')
+    val nonBlank = lines.filter { it.isNotBlank() }
+    val allCommented = nonBlank.isNotEmpty() && nonBlank.all { it.trimStart().startsWith(token) }
+
+    val newLines = lines.map { line ->
+        if (line.isBlank()) return@map line
+        val indent = line.takeWhile { it == ' ' || it == '\t' }
+        val rest = line.substring(indent.length)
+        if (allCommented) {
+            var stripped = rest.removePrefix(token)
+            if (stripped.startsWith(" ")) stripped = stripped.substring(1)
+            indent + stripped
+        } else {
+            "$indent$token $rest"
+        }
+    }
+    val newBlock = newLines.joinToString("\n")
+    val newText = text.substring(0, blockStart) + newBlock + text.substring(blockEnd)
+    return TextFieldValue(newText, TextRange(blockStart, blockStart + newBlock.length))
+}
+
+private fun lineCommentToken(fileName: String): String =
+    when (fileName.substringAfterLast('.', "").lowercase()) {
+        "py", "sh", "rb", "yml", "yaml", "toml", "properties", "cfg" -> "#"
+        else -> "//"
+    }
+
+private const val INDENT_STEP = "    "
 
 @Composable
 private fun NoProjectPlaceholder(onNavigateToProjects: () -> Unit) {

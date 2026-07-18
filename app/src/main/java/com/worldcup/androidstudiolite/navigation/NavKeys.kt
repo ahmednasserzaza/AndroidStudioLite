@@ -6,13 +6,10 @@ import kotlinx.serialization.Serializable
 @Serializable data object ProjectsKey : NavKey
 @Serializable data object EditorKey : NavKey
 @Serializable data object VcsKey : NavKey
-@Serializable data object AssistantKey : NavKey
-@Serializable data object SettingsKey : NavKey
 
 @Serializable data object OnboardingKey : NavKey
 @Serializable data object GitHubSettingsKey : NavKey
-@Serializable data object AiSettingsKey : NavKey
 @Serializable data object BuildProgressKey : NavKey
 
 val TOP_LEVEL_KEYS: List<NavKey> =
-    listOf(ProjectsKey, EditorKey, VcsKey, AssistantKey, SettingsKey)
+    listOf(ProjectsKey, EditorKey, VcsKey)

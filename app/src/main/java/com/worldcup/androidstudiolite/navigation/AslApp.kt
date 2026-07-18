@@ -18,13 +18,10 @@ import com.worldcup.androidstudiolite.designsystem.components.navigation.AslBott
 import com.worldcup.androidstudiolite.designsystem.components.navigation.AslNavItem
 import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
-import com.worldcup.androidstudiolite.feature.assistant.AssistantScreen
 import com.worldcup.androidstudiolite.feature.build.BuildScreen
 import com.worldcup.androidstudiolite.feature.editor.EditorScreen
 import com.worldcup.androidstudiolite.feature.onboarding.OnboardingScreen
 import com.worldcup.androidstudiolite.feature.projects.ProjectsScreen
-import com.worldcup.androidstudiolite.feature.settings.SettingsScreen
-import com.worldcup.androidstudiolite.feature.settings.ai.AiSettingsScreen
 import com.worldcup.androidstudiolite.feature.settings.github.GitHubSettingsScreen
 import com.worldcup.androidstudiolite.feature.vcs.VcsScreen
 import com.worldcup.androidstudiolite.session.BuildSession
@@ -36,24 +33,18 @@ private val NAV_ITEMS = listOf(
     AslNavItem("projects", "Project", AslIcons.Folder),
     AslNavItem("editor", "Editor", AslIcons.Code),
     AslNavItem("vcs", "VCS", AslIcons.GitBranch),
-    AslNavItem("assistant", "Assistant", AslIcons.Sparkle),
-    AslNavItem("settings", "Settings", AslIcons.Settings),
 )
 
 private fun NavKey.navId(): String? = when (this) {
     ProjectsKey -> "projects"
     EditorKey -> "editor"
     VcsKey -> "vcs"
-    AssistantKey -> "assistant"
-    SettingsKey -> "settings"
     else -> null
 }
 
 private fun navKeyFor(id: String): NavKey = when (id) {
     "editor" -> EditorKey
     "vcs" -> VcsKey
-    "assistant" -> AssistantKey
-    "settings" -> SettingsKey
     else -> ProjectsKey
 }
 
@@ -95,7 +86,6 @@ fun AslApp(onboarded: Boolean) {
                     OnboardingScreen(
                         viewModel = koinViewModel(),
                         onConnectGitHub = { push(GitHubSettingsKey) },
-                        onConfigureAi = { push(AiSettingsKey) },
                         onDone = {
                             backStack.clear()
                             backStack.add(ProjectsKey)
@@ -106,8 +96,7 @@ fun AslApp(onboarded: Boolean) {
                     ProjectsScreen(
                         viewModel = koinViewModel(),
                         onNavigateToEditor = { switchTab("editor") },
-                        onNavigateToGitHubSettings = { push(GitHubSettingsKey) },
-                        onNavigateToAiSettings = { push(AiSettingsKey) },
+                        onNavigateToSettings = { push(GitHubSettingsKey) },
                     )
                 }
                 entry<EditorKey> {
@@ -123,27 +112,8 @@ fun AslApp(onboarded: Boolean) {
                         onNavigateToProjects = { switchTab("projects") },
                     )
                 }
-                entry<AssistantKey> {
-                    AssistantScreen(
-                        viewModel = koinViewModel(),
-                        onNavigateToAiSettings = { push(AiSettingsKey) },
-                    )
-                }
-                entry<SettingsKey> {
-                    SettingsScreen(
-                        viewModel = koinViewModel(),
-                        onNavigateToGitHub = { push(GitHubSettingsKey) },
-                        onNavigateToAi = { push(AiSettingsKey) },
-                    )
-                }
                 entry<GitHubSettingsKey> {
                     GitHubSettingsScreen(
-                        viewModel = koinViewModel(),
-                        onBack = { backStack.removeLastOrNull() },
-                    )
-                }
-                entry<AiSettingsKey> {
-                    AiSettingsScreen(
                         viewModel = koinViewModel(),
                         onBack = { backStack.removeLastOrNull() },
                     )

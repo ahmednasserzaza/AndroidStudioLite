@@ -1,11 +1,5 @@
 package com.worldcup.androidstudiolite.di
 
-import com.worldcup.androidstudiolite.domain.ai.ConnectAiProviderUseCase
-import com.worldcup.androidstudiolite.domain.ai.GetAiModelsUseCase
-import com.worldcup.androidstudiolite.domain.ai.GetAiProvidersUseCase
-import com.worldcup.androidstudiolite.domain.ai.ObserveAgentConfigUseCase
-import com.worldcup.androidstudiolite.domain.ai.SelectAiModelUseCase
-import com.worldcup.androidstudiolite.domain.ai.StreamAssistantReplyUseCase
 import com.worldcup.androidstudiolite.domain.build.RunBuildUseCase
 import com.worldcup.androidstudiolite.domain.files.CreateFileEntryUseCase
 import com.worldcup.androidstudiolite.domain.files.DeleteFileEntryUseCase
@@ -28,15 +22,11 @@ import com.worldcup.androidstudiolite.domain.settings.ObserveGitHubConnectionUse
 import com.worldcup.androidstudiolite.domain.settings.ObserveOnboardingUseCase
 import com.worldcup.androidstudiolite.domain.settings.ObservePrivateReposUseCase
 import com.worldcup.androidstudiolite.domain.settings.SetPrivateReposUseCase
-import com.worldcup.androidstudiolite.feature.assistant.AssistantViewModel
 import com.worldcup.androidstudiolite.feature.editor.EditorViewModel
 import com.worldcup.androidstudiolite.feature.onboarding.OnboardingViewModel
 import com.worldcup.androidstudiolite.feature.projects.ProjectsViewModel
-import com.worldcup.androidstudiolite.feature.settings.SettingsViewModel
-import com.worldcup.androidstudiolite.feature.settings.ai.AiSettingsViewModel
 import com.worldcup.androidstudiolite.feature.settings.github.GitHubSettingsViewModel
 import com.worldcup.androidstudiolite.feature.vcs.VcsViewModel
-import com.worldcup.androidstudiolite.session.AssistantSession
 import com.worldcup.androidstudiolite.session.BuildSession
 import com.worldcup.androidstudiolite.session.WorkspaceSession
 import org.koin.android.ext.koin.androidContext
@@ -46,7 +36,6 @@ import org.koin.dsl.module
 
 val sessionModule = module {
     single { WorkspaceSession() }
-    single { AssistantSession() }
     single { BuildSession(context = androidContext(), runBuild = get()) }
 }
 
@@ -67,12 +56,6 @@ val useCaseModule = module {
     factoryOf(::CommitAndPushUseCase)
     factoryOf(::PullProjectUseCase)
     factoryOf(::RunBuildUseCase)
-    factoryOf(::GetAiProvidersUseCase)
-    factoryOf(::ConnectAiProviderUseCase)
-    factoryOf(::GetAiModelsUseCase)
-    factoryOf(::SelectAiModelUseCase)
-    factoryOf(::ObserveAgentConfigUseCase)
-    factoryOf(::StreamAssistantReplyUseCase)
     factoryOf(::ObserveGitHubConnectionUseCase)
     factoryOf(::DisconnectGitHubUseCase)
     factoryOf(::ObserveOnboardingUseCase)
@@ -85,9 +68,6 @@ val appModule = module {
     viewModelOf(::ProjectsViewModel)
     viewModelOf(::EditorViewModel)
     viewModelOf(::VcsViewModel)
-    viewModelOf(::AssistantViewModel)
-    viewModelOf(::SettingsViewModel)
     viewModelOf(::GitHubSettingsViewModel)
-    viewModelOf(::AiSettingsViewModel)
     viewModelOf(::OnboardingViewModel)
 }

@@ -74,8 +74,8 @@ private fun GalleryPreview() {
                 AslTextField(
                     value = value,
                     onValueChange = { value = it },
-                    label = "API key",
-                    placeholder = "Paste your Gemini API key",
+                    label = "Access token",
+                    placeholder = "Paste your GitHub access token",
                 )
                 AslTextField(
                     value = "bad-key",
@@ -135,7 +135,6 @@ private fun GalleryPreview() {
                     AslNavItem("projects", "Project", AslIcons.Folder),
                     AslNavItem("editor", "Editor", AslIcons.Code),
                     AslNavItem("vcs", "VCS", AslIcons.GitBranch),
-                    AslNavItem("assistant", "Assistant", AslIcons.Sparkle),
                     AslNavItem("settings", "Settings", AslIcons.Settings),
                 ),
                 selectedId = "projects",

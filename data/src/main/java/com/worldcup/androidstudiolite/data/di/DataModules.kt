@@ -3,16 +3,11 @@ package com.worldcup.androidstudiolite.data.di
 import android.util.Log
 import com.worldcup.androidstudiolite.data.local.fs.ProjectFileSystemDataSource
 import com.worldcup.androidstudiolite.data.local.prefs.SettingsDataSource
-import com.worldcup.androidstudiolite.data.remote.ai.AiAgentDataSource
-import com.worldcup.androidstudiolite.data.remote.ai.ClaudeAgentDataSource
-import com.worldcup.androidstudiolite.data.remote.ai.GeminiAgentDataSource
 import com.worldcup.androidstudiolite.data.remote.github.GitHubDataSource
-import com.worldcup.androidstudiolite.data.repository.AiAgentRepositoryImpl
 import com.worldcup.androidstudiolite.data.repository.GitHubRepositoryImpl
 import com.worldcup.androidstudiolite.data.repository.ProjectFilesRepositoryImpl
 import com.worldcup.androidstudiolite.data.repository.ProjectRepositoryImpl
 import com.worldcup.androidstudiolite.data.repository.SettingsRepositoryImpl
-import com.worldcup.androidstudiolite.domain.repository.AiAgentRepository
 import com.worldcup.androidstudiolite.domain.repository.GitHubRepository
 import com.worldcup.androidstudiolite.domain.repository.ProjectFilesRepository
 import com.worldcup.androidstudiolite.domain.repository.ProjectRepository
@@ -57,8 +52,6 @@ val networkModule = module {
     }
 
     single { GitHubDataSource(client = get()) { get<SettingsDataSource>().githubToken } }
-    single { GeminiAgentDataSource(client = get()) } bind AiAgentDataSource::class
-    single { ClaudeAgentDataSource(client = get()) } bind AiAgentDataSource::class
 }
 
 val localModule = module {
@@ -71,12 +64,6 @@ val repositoryModule = module {
     single<ProjectFilesRepository> { ProjectFilesRepositoryImpl(fs = get()) }
     single<GitHubRepository> { GitHubRepositoryImpl(github = get(), fs = get()) }
     single<SettingsRepository> { SettingsRepositoryImpl(local = get()) }
-    single<AiAgentRepository> {
-        AiAgentRepositoryImpl(
-            dataSources = getAll<AiAgentDataSource>(),
-            settings = get(),
-        )
-    }
 }
 
 val dataModules = listOf(networkModule, localModule, repositoryModule)

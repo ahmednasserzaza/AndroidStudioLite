@@ -1,8 +1,6 @@
 package com.worldcup.androidstudiolite.feature.projects
 
 import androidx.lifecycle.viewModelScope
-import com.worldcup.androidstudiolite.domain.ai.GetAiProvidersUseCase
-import com.worldcup.androidstudiolite.domain.ai.ObserveAgentConfigUseCase
 import com.worldcup.androidstudiolite.domain.project.CreateProjectUseCase
 import com.worldcup.androidstudiolite.domain.project.DeleteProjectUseCase
 import com.worldcup.androidstudiolite.domain.project.GetProjectsUseCase
@@ -17,8 +15,6 @@ class ProjectsViewModel(
     private val createProject: CreateProjectUseCase,
     private val deleteProject: DeleteProjectUseCase,
     private val githubConnection: ObserveGitHubConnectionUseCase,
-    private val observeAgentConfig: ObserveAgentConfigUseCase,
-    private val getAiProviders: GetAiProvidersUseCase,
     private val workspace: WorkspaceSession,
 ) : BaseViewModel<ProjectsUiState, ProjectsEffect>(ProjectsUiState()),
     ProjectsInteractionListener {
@@ -28,14 +24,6 @@ class ProjectsViewModel(
         viewModelScope.launch {
             githubConnection.token().collect { token ->
                 updateState { it.copy(githubConnected = token.isNotBlank()) }
-            }
-        }
-        viewModelScope.launch {
-            observeAgentConfig().collect { config ->
-                val providerName = config?.let { c ->
-                    getAiProviders().firstOrNull { it.id == c.providerId }?.displayName
-                }
-                updateState { it.copy(aiConnected = config != null, aiProviderName = providerName) }
             }
         }
     }
@@ -83,6 +71,4 @@ class ProjectsViewModel(
     }
 
     override fun onConnectGitHub() = sendNewEffect(ProjectsEffect.NavigateToGitHubSettings)
-
-    override fun onConfigureAi() = sendNewEffect(ProjectsEffect.NavigateToAiSettings)
 }

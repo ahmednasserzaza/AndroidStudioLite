@@ -49,7 +49,7 @@ fun GitHubSettingsScreen(
     Box(Modifier.fillMaxSize().background(AslTheme.colors.background)) {
         Column(Modifier.fillMaxSize()) {
             AslTopBar(
-                title = "Connect GitHub",
+                title = "Settings",
                 navigation = {
                     AslIconButton(AslIcons.ArrowBack, onClick = onBack, contentDescription = "Back")
                 },

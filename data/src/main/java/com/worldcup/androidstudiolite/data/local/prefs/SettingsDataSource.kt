@@ -36,9 +36,6 @@ class SettingsDataSource(private val context: Context) {
         legacy.getString("github_token", null)?.takeIf { it.isNotBlank() }?.let {
             editor.putString(KEY_GITHUB_TOKEN, it)
         }
-        legacy.getString("anthropic_key", null)?.takeIf { it.isNotBlank() }?.let {
-            editor.putString(apiKeyKey("anthropic"), it)
-        }
         editor.apply()
         legacy.edit().putBoolean("migrated_to_secure", true).apply()
     }
@@ -49,13 +46,6 @@ class SettingsDataSource(private val context: Context) {
         set(value) {
             secure.edit().putString(KEY_GITHUB_TOKEN, value.trim()).apply()
         }
-
-    fun apiKey(providerId: String): String = secure.getString(apiKeyKey(providerId), "") ?: ""
-
-    fun setApiKey(providerId: String, key: String) {
-        secure.edit().putString(apiKeyKey(providerId), key.trim()).apply()
-    }
-
 
     val tokenVersion: Flow<Int> = store.data.map { it[TOKEN_VERSION] ?: 0 }
 
@@ -69,16 +59,6 @@ class SettingsDataSource(private val context: Context) {
 
     suspend fun setGithubOwner(owner: String) {
         store.edit { it[GITHUB_OWNER] = owner.trim() }
-    }
-
-    val agentProviderId: Flow<String> = store.data.map { it[AGENT_PROVIDER] ?: "" }
-    val agentModelId: Flow<String> = store.data.map { it[AGENT_MODEL] ?: "" }
-
-    suspend fun setAgent(providerId: String, modelId: String) {
-        store.edit {
-            it[AGENT_PROVIDER] = providerId
-            it[AGENT_MODEL] = modelId
-        }
     }
 
     val privateRepos: Flow<Boolean> = store.data.map { it[PRIVATE_REPOS] ?: true }
@@ -99,12 +79,9 @@ class SettingsDataSource(private val context: Context) {
 
     companion object {
         private const val KEY_GITHUB_TOKEN = "github_token"
-        private fun apiKeyKey(providerId: String) = "api_key_$providerId"
 
         private val TOKEN_VERSION = androidx.datastore.preferences.core.intPreferencesKey("token_version")
         private val GITHUB_OWNER = stringPreferencesKey("github_owner")
-        private val AGENT_PROVIDER = stringPreferencesKey("agent_provider")
-        private val AGENT_MODEL = stringPreferencesKey("agent_model")
         private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val PRIVATE_REPOS = booleanPreferencesKey("private_repos")
     }

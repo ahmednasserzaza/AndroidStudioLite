@@ -13,6 +13,8 @@ import com.worldcup.androidstudiolite.feature.base.BaseViewModel
 import com.worldcup.androidstudiolite.session.BuildSession
 import com.worldcup.androidstudiolite.session.OpenFileState
 import com.worldcup.androidstudiolite.session.WorkspaceSession
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -35,6 +37,7 @@ class EditorViewModel(
     private val redoStacks = mutableMapOf<String, ArrayDeque<String>>()
     private var lastEditPath: String? = null
     private var lastEditAtMs = 0L
+    private var autoSaveJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -113,6 +116,8 @@ class EditorViewModel(
             rebuildVisibleTree()
         } else {
             openFile(row.node)
+            // Auto-close the drawer so opening a file is a single gesture.
+            updateState { it.copy(treeVisible = false) }
         }
     }
 
@@ -194,6 +199,8 @@ class EditorViewModel(
     }
 
     override fun onSelectTab(path: String) {
+        if (path == workspace.activeFilePath.value) return
+        onFlushSave()
         workspace.setActiveFile(path)
     }
 
@@ -229,6 +236,50 @@ class EditorViewModel(
         lastEditPath = activePath
         lastEditAtMs = now
         setActiveContent(activePath, newText)
+        scheduleAutoSave()
+    }
+
+    /**
+     * Debounced persistence of dirty buffers. Restarted on every keystroke so the
+     * write only fires once typing settles. Does not touch the undo/redo stacks.
+     */
+    private fun scheduleAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(AUTO_SAVE_DEBOUNCE_MS)
+            persistDirtyFiles()
+        }
+    }
+
+    private fun persistDirtyFiles() {
+        val dirty = workspace.openFiles.value.filter { it.dirty }
+        if (dirty.isEmpty()) return
+        tryToExecute(
+            callee = { dirty.forEach { saveFile(it.path, it.content) } },
+            onSuccess = {
+                // Only clear the dirty flag for files whose content is unchanged
+                // since the write started, so edits made mid-save stay dirty.
+                workspace.setOpenFiles(
+                    workspace.openFiles.value.map { file ->
+                        val saved = dirty.firstOrNull { it.path == file.path }
+                        if (saved != null && saved.content == file.content) {
+                            file.copy(dirty = false)
+                        } else {
+                            file
+                        }
+                    },
+                )
+            },
+        )
+    }
+
+    /**
+     * Flush pending edits immediately. Called on tab switch (save-on-navigate) and
+     * when the app is backgrounded (lifecycle ON_STOP/ON_PAUSE) so nothing is lost.
+     */
+    override fun onFlushSave() {
+        autoSaveJob?.cancel()
+        persistDirtyFiles()
     }
 
     override fun onUndo() {
@@ -253,20 +304,6 @@ class EditorViewModel(
         workspace.setOpenFiles(
             workspace.openFiles.value.map {
                 if (it.path == path) it.copy(content = newText, dirty = true) else it
-            },
-        )
-    }
-
-    override fun onSaveAll() {
-        val dirty = workspace.openFiles.value.filter { it.dirty }
-        if (dirty.isEmpty()) return
-        tryToExecute(
-            callee = { dirty.forEach { saveFile(it.path, it.content) } },
-            onSuccess = {
-                workspace.setOpenFiles(
-                    workspace.openFiles.value.map { it.copy(dirty = false) },
-                )
-                showSnackBar("Saved ${dirty.size} file${if (dirty.size > 1) "s" else ""}")
             },
         )
     }
@@ -300,5 +337,6 @@ class EditorViewModel(
     private companion object {
         const val UNDO_COALESCE_MS = 800L
         const val UNDO_LIMIT = 100
+        const val AUTO_SAVE_DEBOUNCE_MS = 1200L
     }
 }

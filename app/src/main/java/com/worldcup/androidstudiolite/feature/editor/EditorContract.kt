@@ -37,6 +37,6 @@ interface EditorInteractionListener {
     fun onEditContent(newText: String)
     fun onUndo()
     fun onRedo()
-    fun onSaveAll()
+    fun onFlushSave()
     fun onRun()
 }

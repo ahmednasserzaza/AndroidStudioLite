@@ -33,7 +33,6 @@ object AslIcons {
     val Terminal = R.drawable.ic_terminal
     val Android = R.drawable.ic_android
     val GitBranch = R.drawable.ic_git_branch
-    val Sparkle = R.drawable.ic_sparkle
     val GitHub = R.drawable.ic_github
     val Error = R.drawable.ic_error
     val Schedule = R.drawable.ic_schedule
@@ -41,4 +40,6 @@ object AslIcons {
     val ContentCopy = R.drawable.ic_content_copy
     val Undo = R.drawable.ic_undo
     val Redo = R.drawable.ic_redo
+    val VerticalAlignTop = R.drawable.ic_vertical_align_top
+    val VerticalAlignBottom = R.drawable.ic_vertical_align_bottom
 }

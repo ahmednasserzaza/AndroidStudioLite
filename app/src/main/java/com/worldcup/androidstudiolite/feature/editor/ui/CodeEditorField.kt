@@ -6,8 +6,10 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -46,7 +49,9 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import com.worldcup.androidstudiolite.designsystem.components.buttons.AslIconButton
 import com.worldcup.androidstudiolite.designsystem.foundation.AslText
+import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -79,93 +84,129 @@ fun CodeEditorField(
         )
     }
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.canvas)
-            .graphicsLayer {
-                if (pinchZoom != 1f) {
-                    transformOrigin = TransformOrigin(0f, 0f)
-                    scaleX = pinchZoom
-                    scaleY = pinchZoom
-                    translationX = pinchAnchor.x * (1f - pinchZoom)
-                    translationY = pinchAnchor.y * (1f - pinchZoom)
-                }
-            }
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                    var zoom = 1f
-                    var anchor: Offset? = null
-                    do {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                        if (event.changes.count { it.pressed } >= 2) {
-                            if (anchor == null) {
-                                anchor = event.calculateCentroid()
-                                pinchAnchor = anchor
-                            }
-                            zoom = (zoom * event.calculateZoom())
-                                .coerceIn(MIN_FONT_SCALE / fontScale, MAX_FONT_SCALE / fontScale)
-                            pinchZoom = zoom
-                            event.changes.forEach { it.consume() }
-                        }
-                    } while (event.changes.any { it.pressed })
-
-                    val pinchedAt = anchor
-                    if (pinchedAt != null && zoom != 1f) {
-                        val targetV = (zoom * (verticalScroll.value + pinchedAt.y) - pinchedAt.y)
-                            .roundToInt().coerceAtLeast(0)
-                        val targetH = (zoom * (horizontalScroll.value + pinchedAt.x) - pinchedAt.x)
-                            .roundToInt().coerceAtLeast(0)
-                        fontScale = (fontScale * zoom).coerceIn(MIN_FONT_SCALE, MAX_FONT_SCALE)
-                        pinchZoom = 1f
-                        scope.launch {
-                            withFrameNanos { }
-                            verticalScroll.scrollTo(targetV)
-                            horizontalScroll.scrollTo(targetH)
-                        }
-                    } else {
-                        pinchZoom = 1f
+    Box(modifier.fillMaxSize().background(colors.canvas)) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    if (pinchZoom != 1f) {
+                        transformOrigin = TransformOrigin(0f, 0f)
+                        scaleX = pinchZoom
+                        scaleY = pinchZoom
+                        translationX = pinchAnchor.x * (1f - pinchZoom)
+                        translationY = pinchAnchor.y * (1f - pinchZoom)
                     }
                 }
-            }
-            .verticalScroll(verticalScroll),
-    ) {
-        LineNumberGutter(
-            layoutResult = layoutResult,
-            style = codeStyle,
-            color = colors.syntax.comment,
-            topPadding = EDITOR_PADDING,
-            modifier = Modifier
-                .background(colors.panel)
-                .padding(horizontal = 6.dp),
-        )
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val viewportWidth = maxWidth
-            Box(Modifier.horizontalScroll(horizontalScroll)) {
-                BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    textStyle = codeStyle,
-                    cursorBrush = SolidColor(colors.primary),
-                    visualTransformation = transformation,
-                    onTextLayout = { layoutResult = it },
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.None,
-                        autoCorrectEnabled = false,
-                        keyboardType = KeyboardType.Ascii,
-                    ),
-                    modifier = Modifier
-                        .widthIn(min = viewportWidth)
-                        .padding(
-                            start = EDITOR_PADDING,
-                            top = EDITOR_PADDING,
-                            bottom = 120.dp,
-                            end = EDITOR_PADDING,
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        var zoom = 1f
+                        var anchor: Offset? = null
+                        do {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (event.changes.count { it.pressed } >= 2) {
+                                if (anchor == null) {
+                                    anchor = event.calculateCentroid()
+                                    pinchAnchor = anchor
+                                }
+                                zoom = (zoom * event.calculateZoom())
+                                    .coerceIn(MIN_FONT_SCALE / fontScale, MAX_FONT_SCALE / fontScale)
+                                pinchZoom = zoom
+                                event.changes.forEach { it.consume() }
+                            }
+                        } while (event.changes.any { it.pressed })
+
+                        val pinchedAt = anchor
+                        if (pinchedAt != null && zoom != 1f) {
+                            val targetV = (zoom * (verticalScroll.value + pinchedAt.y) - pinchedAt.y)
+                                .roundToInt().coerceAtLeast(0)
+                            val targetH = (zoom * (horizontalScroll.value + pinchedAt.x) - pinchedAt.x)
+                                .roundToInt().coerceAtLeast(0)
+                            fontScale = (fontScale * zoom).coerceIn(MIN_FONT_SCALE, MAX_FONT_SCALE)
+                            pinchZoom = 1f
+                            scope.launch {
+                                withFrameNanos { }
+                                verticalScroll.scrollTo(targetV)
+                                horizontalScroll.scrollTo(targetH)
+                            }
+                        } else {
+                            pinchZoom = 1f
+                        }
+                    }
+                }
+                .verticalScroll(verticalScroll),
+        ) {
+            LineNumberGutter(
+                layoutResult = layoutResult,
+                style = codeStyle,
+                color = colors.syntax.comment,
+                topPadding = EDITOR_PADDING,
+                modifier = Modifier
+                    .background(colors.panel)
+                    .padding(horizontal = 6.dp),
+            )
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val viewportWidth = maxWidth
+                Box(Modifier.horizontalScroll(horizontalScroll)) {
+                    BasicTextField(
+                        value = value,
+                        onValueChange = onValueChange,
+                        textStyle = codeStyle,
+                        cursorBrush = SolidColor(colors.primary),
+                        visualTransformation = transformation,
+                        onTextLayout = { layoutResult = it },
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrectEnabled = false,
+                            keyboardType = KeyboardType.Ascii,
                         ),
-                )
+                        modifier = Modifier
+                            .widthIn(min = viewportWidth)
+                            .padding(
+                                start = EDITOR_PADDING,
+                                top = EDITOR_PADDING,
+                                bottom = 120.dp,
+                                end = EDITOR_PADDING,
+                            ),
+                    )
+                }
             }
         }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 8.dp, bottom = 128.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            JumpButton(
+                icon = AslIcons.VerticalAlignTop,
+                description = "Jump to top",
+                onClick = { scope.launch { verticalScroll.animateScrollTo(0) } },
+            )
+            JumpButton(
+                icon = AslIcons.VerticalAlignBottom,
+                description = "Jump to bottom",
+                onClick = { scope.launch { verticalScroll.animateScrollTo(verticalScroll.maxValue) } },
+            )
+        }
+    }
+}
+
+@Composable
+private fun JumpButton(icon: Int, description: String, onClick: () -> Unit) {
+    Box(
+        Modifier.background(
+            AslTheme.colors.panel.copy(alpha = 0.85f),
+            AslTheme.shapes.default,
+        ),
+    ) {
+        AslIconButton(
+            icon,
+            onClick = onClick,
+            tint = AslTheme.colors.onSurfaceVariant,
+            contentDescription = description,
+        )
     }
 }
 

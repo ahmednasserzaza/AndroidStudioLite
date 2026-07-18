@@ -10,7 +10,5 @@ sealed class DomainException(message: String, cause: Throwable? = null) :
 
     class GitHub(message: String) : DomainException(message)
 
-    class Ai(message: String, cause: Throwable? = null) : DomainException(message, cause)
-
     class Validation(message: String) : DomainException(message)
 }

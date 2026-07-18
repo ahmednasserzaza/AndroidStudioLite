@@ -30,7 +30,6 @@ import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
 fun OnboardingScreen(
     viewModel: OnboardingViewModel,
     onConnectGitHub: () -> Unit,
-    onConfigureAi: () -> Unit,
     onDone: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -59,15 +58,6 @@ fun OnboardingScreen(
                 title = "Connect GitHub",
                 subtitle = "Required to build & run projects",
                 done = state.githubConnected,
-            )
-        }
-        Spacer(Modifier.height(AslTheme.spacing.md))
-        AslInnerCard(Modifier.fillMaxWidth(), onClick = onConfigureAi) {
-            StepRow(
-                iconRes = AslIcons.Sparkle,
-                title = "Configure AI",
-                subtitle = "Optional — enables the coding assistant",
-                done = state.aiConnected,
             )
         }
 
