@@ -131,9 +131,9 @@ private fun RepoVisibilityCard(
             Column(Modifier.weight(1f)) {
                 AslText("Private repositories", style = AslTheme.typography.title)
                 AslText(
-                    "New project repositories are created private. Turn off if your " +
-                        "account can't create private repositories — projects will be " +
-                        "pushed to public repos instead.",
+                    "Default for the \"Private repository\" option when creating a " +
+                        "project. Each project can override it in the create dialog. " +
+                        "Turn off if your account can't create private repositories.",
                     style = AslTheme.typography.uiLabelSmall,
                     color = AslTheme.colors.onSurfaceVariant,
                 )

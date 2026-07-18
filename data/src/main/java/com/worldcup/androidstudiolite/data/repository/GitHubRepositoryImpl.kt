@@ -8,10 +8,12 @@ import com.worldcup.androidstudiolite.entities.Commit
 import com.worldcup.androidstudiolite.entities.GitHubAccount
 import com.worldcup.androidstudiolite.entities.Project
 import com.worldcup.androidstudiolite.entities.PushResult
+import com.worldcup.androidstudiolite.entities.RemoteRepo
 import com.worldcup.androidstudiolite.entities.RunConclusion
 import com.worldcup.androidstudiolite.entities.RunStatus
 import com.worldcup.androidstudiolite.entities.WorkflowRun
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -41,6 +43,7 @@ class GitHubRepositoryImpl(
             excludeName = ProjectTemplates.META_FILE,
             message = message,
             force = force,
+            branch = project.branch,
         )
 
     override suspend fun findRun(owner: String, repo: String, commitSha: String): WorkflowRun? =
@@ -100,7 +103,20 @@ class GitHubRepositoryImpl(
         github.downloadApkArtifact(owner, repo, runId, fs.apkCacheDir).absolutePath
 
     override suspend fun pullProject(owner: String, project: Project): Int =
-        github.pullProject(owner, project.repoName, File(project.path))
+        github.pullProject(owner, project.repoName, File(project.path), project.branch)
+
+    override suspend fun listUserRepos(): List<RemoteRepo> =
+        github.listUserRepos().map { element ->
+            val repo = element.jsonObject
+            RemoteRepo(
+                name = repo.getValue("name").jsonPrimitive.content,
+                isPrivate = repo["private"]?.jsonPrimitive?.content == "true",
+                defaultBranch = repo["default_branch"]?.jsonPrimitive?.content ?: "main",
+                description = repo["description"]?.jsonPrimitive?.contentOrNull ?: "",
+                updatedAt = (repo["updated_at"]?.jsonPrimitive?.contentOrNull ?: "")
+                    .replace("T", " ").removeSuffix("Z"),
+            )
+        }
 
     override suspend fun listCommits(owner: String, repo: String, limit: Int): List<Commit> =
         github.listCommits(owner, repo, limit).map { element ->

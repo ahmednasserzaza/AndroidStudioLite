@@ -7,6 +7,8 @@ data class Project(
     val repoName: String,
     val path: String,
     val lastModifiedEpochMs: Long,
+    val isPrivate: Boolean = true,
+    val branch: String = "main",
 )
 
 data class FileNode(

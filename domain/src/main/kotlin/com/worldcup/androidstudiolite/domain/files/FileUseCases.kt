@@ -4,6 +4,7 @@ import com.worldcup.androidstudiolite.domain.exception.DomainException
 import com.worldcup.androidstudiolite.domain.repository.ProjectFilesRepository
 import com.worldcup.androidstudiolite.entities.FileNode
 import com.worldcup.androidstudiolite.entities.Project
+import com.worldcup.androidstudiolite.entities.SearchMatch
 
 class GetFileTreeUseCase(private val files: ProjectFilesRepository) {
     suspend operator fun invoke(project: Project): List<FileNode> = files.listFiles(project)
@@ -37,4 +38,11 @@ class RenameFileEntryUseCase(private val files: ProjectFilesRepository) {
 
 class DeleteFileEntryUseCase(private val files: ProjectFilesRepository) {
     suspend operator fun invoke(path: String) = files.delete(path)
+}
+
+class SearchProjectUseCase(private val files: ProjectFilesRepository) {
+    suspend operator fun invoke(project: Project, query: String): List<SearchMatch> {
+        if (query.isBlank()) return emptyList()
+        return files.searchFiles(project, query)
+    }
 }

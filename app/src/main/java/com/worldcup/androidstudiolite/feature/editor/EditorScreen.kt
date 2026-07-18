@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,7 +61,11 @@ import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
 import com.worldcup.androidstudiolite.feature.base.CollectEffects
 import com.worldcup.androidstudiolite.feature.editor.ui.CodeEditorField
+import com.worldcup.androidstudiolite.feature.editor.ui.EditorScrollRequest
+import com.worldcup.androidstudiolite.feature.editor.ui.EditorSearchBar
 import com.worldcup.androidstudiolite.feature.editor.ui.EditorSymbolBar
+import com.worldcup.androidstudiolite.feature.editor.ui.MatchHighlight
+import com.worldcup.androidstudiolite.feature.editor.ui.ProjectSearchResults
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -127,6 +132,13 @@ fun EditorScreen(
                 },
                 actions = {
                     AslIconButton(
+                        AslIcons.Search,
+                        onClick = listener::onToggleSearch,
+                        tint = if (state.searchVisible) AslTheme.colors.primary
+                        else AslTheme.colors.onSurfaceVariant,
+                        contentDescription = "Search",
+                    )
+                    AslIconButton(
                         AslIcons.Folder,
                         onClick = listener::onToggleTree,
                         tint = if (state.treeVisible) AslTheme.colors.primary
@@ -152,6 +164,18 @@ fun EditorScreen(
                 onClose = { listener.onCloseTab(it.id) },
             )
 
+            if (state.searchVisible) {
+                EditorSearchBar(state = state, listener = listener)
+            }
+
+            // Place the cursor at the target of a jump (search match, diagnostic).
+            LaunchedEffect(state.scrollRequest) {
+                val request = state.scrollRequest ?: return@LaunchedEffect
+                if (request.offset <= editorValue.text.length) {
+                    fieldValue = editorValue.copy(selection = TextRange(request.offset))
+                }
+            }
+
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 Row(Modifier.fillMaxSize()) {
                     if (wide && state.treeVisible) {
@@ -161,7 +185,13 @@ fun EditorScreen(
                             modifier = Modifier.width(240.dp).fillMaxHeight(),
                         )
                     }
-                    if (active != null) {
+                    if (state.searchVisible && state.searchInProject) {
+                        ProjectSearchResults(
+                            state = state,
+                            listener = listener,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else if (active != null) {
                         CodeEditorField(
                             value = editorValue,
                             fileName = active.name,
@@ -173,6 +203,16 @@ fun EditorScreen(
                                 }
                             },
                             modifier = Modifier.weight(1f),
+                            searchMatches = state.matches.mapIndexed { index, match ->
+                                MatchHighlight(
+                                    start = match.start,
+                                    end = match.end,
+                                    active = index == state.activeMatchIndex,
+                                )
+                            },
+                            scrollRequest = state.scrollRequest?.let {
+                                EditorScrollRequest(it.offset, it.nonce)
+                            },
                         )
                     } else {
                         Box(

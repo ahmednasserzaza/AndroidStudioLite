@@ -21,5 +21,14 @@ sealed interface BuildProgress {
         val runUrl: String? = null,
         val errorLines: List<String> = emptyList(),
         val step: BuildStep? = null,
+        val diagnostics: List<BuildDiagnostic> = emptyList(),
     ) : BuildProgress
 }
+
+/** A compiler/build error parsed from CI logs, pointing at a project file location. */
+data class BuildDiagnostic(
+    val relativePath: String,
+    val line: Int,
+    val column: Int,
+    val message: String,
+)

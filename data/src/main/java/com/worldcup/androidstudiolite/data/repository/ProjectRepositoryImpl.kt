@@ -5,6 +5,8 @@ import com.worldcup.androidstudiolite.domain.repository.ProjectFilesRepository
 import com.worldcup.androidstudiolite.domain.repository.ProjectRepository
 import com.worldcup.androidstudiolite.entities.FileNode
 import com.worldcup.androidstudiolite.entities.Project
+import com.worldcup.androidstudiolite.entities.RemoteRepo
+import com.worldcup.androidstudiolite.entities.SearchMatch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -16,8 +18,8 @@ class ProjectRepositoryImpl(
         fs.listProjects()
     }
 
-    override suspend fun createProject(name: String, packageName: String): Project =
-        withContext(Dispatchers.IO) { fs.createProject(name, packageName) }
+    override suspend fun createProject(name: String, packageName: String, isPrivate: Boolean): Project =
+        withContext(Dispatchers.IO) { fs.createProject(name, packageName, isPrivate) }
 
     override suspend fun deleteProject(project: Project) = withContext(Dispatchers.IO) {
         fs.deleteProject(project)
@@ -26,6 +28,12 @@ class ProjectRepositoryImpl(
     override suspend fun repairInfrastructure(project: Project) = withContext(Dispatchers.IO) {
         fs.repairInfrastructure(project)
     }
+
+    override suspend fun createImportShell(repo: RemoteRepo): Project =
+        withContext(Dispatchers.IO) { fs.createImportShell(repo) }
+
+    override suspend fun finalizeImport(project: Project): Project =
+        withContext(Dispatchers.IO) { fs.finalizeImport(project) }
 }
 
 class ProjectFilesRepositoryImpl(
@@ -49,4 +57,7 @@ class ProjectFilesRepositoryImpl(
 
     override suspend fun delete(path: String) =
         withContext(Dispatchers.IO) { fs.delete(path) }
+
+    override suspend fun searchFiles(project: Project, query: String): List<SearchMatch> =
+        withContext(Dispatchers.IO) { fs.searchFiles(project, query) }
 }

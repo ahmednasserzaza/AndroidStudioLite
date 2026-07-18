@@ -22,11 +22,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,8 +42,10 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
@@ -54,7 +59,9 @@ import com.worldcup.androidstudiolite.designsystem.foundation.AslText
 import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun CodeEditorField(
@@ -62,14 +69,40 @@ fun CodeEditorField(
     fileName: String,
     onValueChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
+    searchMatches: List<MatchHighlight> = emptyList(),
+    scrollRequest: EditorScrollRequest? = null,
 ) {
     val verticalScroll = rememberScrollState()
     val horizontalScroll = rememberScrollState()
     val colors = AslTheme.colors
     val scope = rememberCoroutineScope()
 
-    val transformation = remember(fileName) { SyntaxTransformation(fileName) }
+    val matchColor = colors.primary.copy(alpha = 0.25f)
+    val activeMatchColor = colors.primary.copy(alpha = 0.55f)
+    val transformation = remember(fileName, searchMatches, matchColor, activeMatchColor) {
+        SyntaxTransformation(fileName, searchMatches, matchColor, activeMatchColor)
+    }
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    // Scroll so the requested character offset sits ~1/3 from the viewport top.
+    // Waits until the text layout matches the current buffer (file may have just
+    // been opened) before measuring.
+    val currentValue by rememberUpdatedState(value)
+    LaunchedEffect(scrollRequest) {
+        val request = scrollRequest ?: return@LaunchedEffect
+        val layout = withTimeoutOrNull(1_500L) {
+            snapshotFlow { layoutResult }
+                .first { it != null && it.layoutInput.text.text == currentValue.text }
+        } ?: return@LaunchedEffect
+        val offset = request.offset.coerceIn(0, layout.layoutInput.text.length)
+        val line = layout.getLineForOffset(offset)
+        val targetTop = (layout.getLineTop(line) - verticalScroll.viewportSize / 3f)
+            .roundToInt().coerceAtLeast(0)
+        verticalScroll.animateScrollTo(targetTop)
+        val targetLeft = (layout.getHorizontalPosition(offset, usePrimaryDirection = true) -
+            horizontalScroll.viewportSize / 3f).roundToInt().coerceAtLeast(0)
+        horizontalScroll.animateScrollTo(targetLeft)
+    }
 
     var fontScale by rememberSaveable { mutableFloatStateOf(1f) }
     var pinchZoom by remember { mutableFloatStateOf(1f) }
@@ -257,7 +290,18 @@ private fun LineNumberGutter(
     }
 }
 
-private class SyntaxTransformation(private val fileName: String) : VisualTransformation {
+/** A search match to paint in the editor, as character offsets. */
+data class MatchHighlight(val start: Int, val end: Int, val active: Boolean)
+
+/** One-shot request to bring a character offset into view (nonce retriggers). */
+data class EditorScrollRequest(val offset: Int, val nonce: Long)
+
+private class SyntaxTransformation(
+    private val fileName: String,
+    private val searchMatches: List<MatchHighlight>,
+    private val matchColor: Color,
+    private val activeMatchColor: Color,
+) : VisualTransformation {
     private var lastText: String? = null
     private var lastResult: AnnotatedString? = null
 
@@ -267,6 +311,22 @@ private class SyntaxTransformation(private val fileName: String) : VisualTransfo
             lastText = text.text
             lastResult = it
         }
-        return TransformedText(highlighted, OffsetMapping.Identity)
+        return TransformedText(withSearchHighlights(highlighted, text.length), OffsetMapping.Identity)
+    }
+
+    private fun withSearchHighlights(base: AnnotatedString, length: Int): AnnotatedString {
+        if (searchMatches.isEmpty()) return base
+        return buildAnnotatedString {
+            append(base)
+            searchMatches.forEach { match ->
+                if (match.start < length) {
+                    addStyle(
+                        SpanStyle(background = if (match.active) activeMatchColor else matchColor),
+                        match.start,
+                        match.end.coerceAtMost(length),
+                    )
+                }
+            }
+        }
     }
 }

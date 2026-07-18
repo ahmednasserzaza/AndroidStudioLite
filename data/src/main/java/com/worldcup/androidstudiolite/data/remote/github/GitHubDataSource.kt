@@ -190,8 +190,9 @@ class GitHubDataSource(
         excludeName: String,
         message: String,
         force: Boolean = false,
+        branch: String = BRANCH,
     ): PushResult = withContext(Dispatchers.IO) {
-        val headSha = api(HttpMethod.Get, "/repos/$owner/$repo/git/ref/heads/$BRANCH")
+        val headSha = api(HttpMethod.Get, "/repos/$owner/$repo/git/ref/heads/$branch")
             .getValue("object").jsonObject.getValue("sha").jsonPrimitive.content
 
         val entries = buildJsonArray {
@@ -240,7 +241,7 @@ class GitHubDataSource(
         ).getValue("sha").jsonPrimitive.content
 
         api(
-            HttpMethod.Patch, "/repos/$owner/$repo/git/refs/heads/$BRANCH",
+            HttpMethod.Patch, "/repos/$owner/$repo/git/refs/heads/$branch",
             buildJsonObject {
                 put("sha", commitSha)
                 put("force", true)
@@ -328,9 +329,9 @@ class GitHubDataSource(
         }
 
 
-    suspend fun pullProject(owner: String, repo: String, projectDir: File): Int =
+    suspend fun pullProject(owner: String, repo: String, projectDir: File, branch: String = BRANCH): Int =
         withContext(Dispatchers.IO) {
-            client.prepareGet("$API/repos/$owner/$repo/zipball/$BRANCH") {
+            client.prepareGet("$API/repos/$owner/$repo/zipball/$branch") {
                 header("Authorization", "Bearer ${tokenProvider()}")
             }.execute { response ->
                 if (!response.status.isSuccess()) {
@@ -361,6 +362,11 @@ class GitHubDataSource(
             }
         }
 
+
+    suspend fun listUserRepos(limit: Int = 100): JsonArray = withContext(Dispatchers.IO) {
+        api(HttpMethod.Get, "/user/repos?per_page=$limit&sort=updated")
+            .getValue("items").jsonArray
+    }
 
     suspend fun listCommits(owner: String, repo: String, limit: Int): JsonArray =
         withContext(Dispatchers.IO) {

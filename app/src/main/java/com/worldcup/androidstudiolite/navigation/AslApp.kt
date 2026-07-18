@@ -25,6 +25,7 @@ import com.worldcup.androidstudiolite.feature.projects.ProjectsScreen
 import com.worldcup.androidstudiolite.feature.settings.github.GitHubSettingsScreen
 import com.worldcup.androidstudiolite.feature.vcs.VcsScreen
 import com.worldcup.androidstudiolite.session.BuildSession
+import com.worldcup.androidstudiolite.session.OpenLocation
 import com.worldcup.androidstudiolite.session.WorkspaceSession
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -125,6 +126,16 @@ fun AslApp(onboarded: Boolean) {
                         buildSession = buildSession,
                         workspace = workspace,
                         onBack = { backStack.removeLastOrNull() },
+                        onOpenDiagnostic = { diagnostic ->
+                            workspace.requestOpen(
+                                OpenLocation(
+                                    relativePath = diagnostic.relativePath,
+                                    line = diagnostic.line,
+                                    column = diagnostic.column,
+                                ),
+                            )
+                            switchTab("editor")
+                        },
                     )
                 }
             },

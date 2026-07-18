@@ -9,12 +9,12 @@ class GetProjectsUseCase(private val projects: ProjectRepository) {
 }
 
 class CreateProjectUseCase(private val projects: ProjectRepository) {
-    suspend operator fun invoke(name: String, packageName: String): Project {
+    suspend operator fun invoke(name: String, packageName: String, isPrivate: Boolean = true): Project {
         if (name.isBlank()) throw DomainException.Validation("Project name can't be empty")
         if (!packageName.matches(PACKAGE_REGEX)) {
             throw DomainException.Validation("\"$packageName\" is not a valid package name")
         }
-        return projects.createProject(name.trim(), packageName.trim())
+        return projects.createProject(name.trim(), packageName.trim(), isPrivate)
     }
 
     companion object {
@@ -23,6 +23,17 @@ class CreateProjectUseCase(private val projects: ProjectRepository) {
         fun sanitize(name: String): String =
             name.trim().lowercase()
                 .replace(Regex("[^a-z0-9]+"), "-")
+                .trim('-')
+                .ifEmpty { "project" }
+
+        /**
+         * The GitHub repo name for a project: the project name itself, only
+         * adjusted where GitHub requires it (no spaces/special characters).
+         * "Test App" → "Test-App".
+         */
+        fun repoName(name: String): String =
+            name.trim()
+                .replace(Regex("[^A-Za-z0-9._-]+"), "-")
                 .trim('-')
                 .ifEmpty { "project" }
 

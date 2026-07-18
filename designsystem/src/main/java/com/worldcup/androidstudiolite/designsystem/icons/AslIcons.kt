@@ -19,6 +19,7 @@ object AslIcons {
     val Add = R.drawable.ic_add
     val ArrowBack = R.drawable.ic_arrow_back
     val ExpandMore = R.drawable.ic_expand_more
+    val ExpandLess = R.drawable.ic_expand_less
     val ChevronRight = R.drawable.ic_chevron_right
     val File = R.drawable.ic_file
     val MoreVert = R.drawable.ic_more_vert

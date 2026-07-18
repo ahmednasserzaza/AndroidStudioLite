@@ -12,3 +12,11 @@ data class Commit(
     val message: String,
     val date: String,
 )
+
+data class RemoteRepo(
+    val name: String,
+    val isPrivate: Boolean,
+    val defaultBranch: String,
+    val description: String,
+    val updatedAt: String,
+)

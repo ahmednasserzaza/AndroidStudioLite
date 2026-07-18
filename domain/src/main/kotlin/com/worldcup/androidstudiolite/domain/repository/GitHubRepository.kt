@@ -4,6 +4,7 @@ import com.worldcup.androidstudiolite.entities.Commit
 import com.worldcup.androidstudiolite.entities.GitHubAccount
 import com.worldcup.androidstudiolite.entities.Project
 import com.worldcup.androidstudiolite.entities.PushResult
+import com.worldcup.androidstudiolite.entities.RemoteRepo
 import com.worldcup.androidstudiolite.entities.WorkflowRun
 
 interface GitHubRepository {
@@ -28,4 +29,6 @@ interface GitHubRepository {
     suspend fun pullProject(owner: String, project: Project): Int
 
     suspend fun listCommits(owner: String, repo: String, limit: Int = 20): List<Commit>
+
+    suspend fun listUserRepos(): List<RemoteRepo>
 }

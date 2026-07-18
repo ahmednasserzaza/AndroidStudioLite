@@ -15,12 +15,28 @@ class WorkspaceSession {
     private val _activeFilePath = MutableStateFlow<String?>(null)
     val activeFilePath = _activeFilePath.asStateFlow()
 
+    /**
+     * A cross-tab request to open a file at a location (e.g. tapping a build
+     * diagnostic navigates to the Editor tab, whose ViewModel consumes this).
+     */
+    private val _pendingOpen = MutableStateFlow<OpenLocation?>(null)
+    val pendingOpen = _pendingOpen.asStateFlow()
+
     val expandedDirs = mutableSetOf<String>()
+
+    fun requestOpen(location: OpenLocation) {
+        _pendingOpen.value = location.copy(nonce = System.nanoTime())
+    }
+
+    fun clearPendingOpen() {
+        _pendingOpen.value = null
+    }
 
     fun openProject(project: Project) {
         _currentProject.value = project
         _openFiles.value = emptyList()
         _activeFilePath.value = null
+        _pendingOpen.value = null
         expandedDirs.clear()
     }
 
@@ -28,6 +44,7 @@ class WorkspaceSession {
         _currentProject.value = null
         _openFiles.value = emptyList()
         _activeFilePath.value = null
+        _pendingOpen.value = null
         expandedDirs.clear()
     }
 
@@ -46,4 +63,11 @@ data class OpenFileState(
     val name: String,
     val content: String,
     val dirty: Boolean,
+)
+
+data class OpenLocation(
+    val relativePath: String,
+    val line: Int,
+    val column: Int = 1,
+    val nonce: Long = 0L,
 )

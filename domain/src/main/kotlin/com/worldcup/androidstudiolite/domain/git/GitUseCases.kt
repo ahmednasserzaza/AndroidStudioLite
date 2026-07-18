@@ -45,12 +45,11 @@ class GetCommitsUseCase(
 
 class CommitAndPushUseCase(
     private val github: GitHubRepository,
-    private val settings: SettingsRepository,
     private val ensureOwner: EnsureOwnerUseCase,
 ) {
     suspend operator fun invoke(project: Project, message: String): PushResult {
         val owner = ensureOwner()
-        github.ensureRepo(owner, project.repoName, settings.privateRepos().first())
+        github.ensureRepo(owner, project.repoName, project.isPrivate)
         return github.pushProject(
             owner = owner,
             project = project,

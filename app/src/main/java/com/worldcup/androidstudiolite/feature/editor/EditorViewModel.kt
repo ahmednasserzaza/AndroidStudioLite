@@ -7,8 +7,10 @@ import com.worldcup.androidstudiolite.domain.files.GetFileTreeUseCase
 import com.worldcup.androidstudiolite.domain.files.ReadFileUseCase
 import com.worldcup.androidstudiolite.domain.files.RenameFileEntryUseCase
 import com.worldcup.androidstudiolite.domain.files.SaveFileUseCase
+import com.worldcup.androidstudiolite.domain.files.SearchProjectUseCase
 import com.worldcup.androidstudiolite.domain.project.RepairProjectInfrastructureUseCase
 import com.worldcup.androidstudiolite.entities.FileNode
+import com.worldcup.androidstudiolite.entities.SearchMatch
 import com.worldcup.androidstudiolite.feature.base.BaseViewModel
 import com.worldcup.androidstudiolite.session.BuildSession
 import com.worldcup.androidstudiolite.session.OpenFileState
@@ -26,6 +28,7 @@ class EditorViewModel(
     private val renameEntry: RenameFileEntryUseCase,
     private val deleteEntry: DeleteFileEntryUseCase,
     private val repairInfrastructure: RepairProjectInfrastructureUseCase,
+    private val searchProject: SearchProjectUseCase,
     private val workspace: WorkspaceSession,
     private val buildSession: BuildSession,
 ) : BaseViewModel<EditorUiState, EditorEffect>(EditorUiState()),
@@ -38,6 +41,7 @@ class EditorViewModel(
     private var lastEditPath: String? = null
     private var lastEditAtMs = 0L
     private var autoSaveJob: Job? = null
+    private var projectSearchJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -49,10 +53,22 @@ class EditorViewModel(
                 Triple(project, openFiles, activePath)
             }.collect { (project, openFiles, activePath) ->
                 updateState {
+                    val active = openFiles.firstOrNull { f -> f.path == activePath }
+                    val matches = if (it.searchVisible && it.searchQuery.isNotEmpty() && active != null) {
+                        computeMatches(active.content, it.searchQuery)
+                    } else {
+                        emptyList()
+                    }
                     it.copy(
                         projectName = project?.name,
                         openFiles = openFiles,
-                        activeFile = openFiles.firstOrNull { f -> f.path == activePath },
+                        activeFile = active,
+                        matches = matches,
+                        activeMatchIndex = if (matches.isEmpty()) {
+                            -1
+                        } else {
+                            it.activeMatchIndex.coerceIn(0, matches.lastIndex)
+                        },
                         canUndo = undoStacks[activePath]?.isNotEmpty() == true,
                         canRedo = redoStacks[activePath]?.isNotEmpty() == true,
                     )
@@ -65,6 +81,16 @@ class EditorViewModel(
                     it.copy(
                         buildRunning = progress is com.worldcup.androidstudiolite.entities.BuildProgress.Running,
                     )
+                }
+            }
+        }
+        // Cross-tab open requests (e.g. tapping a build diagnostic).
+        viewModelScope.launch {
+            workspace.pendingOpen.collect { location ->
+                val project = workspace.currentProject.value
+                if (location != null && project != null) {
+                    workspace.clearPendingOpen()
+                    openFileAt("${project.path}/${location.relativePath}", location.line, location.column)
                 }
             }
         }
@@ -142,6 +168,50 @@ class EditorViewModel(
             },
             onError = { showSnackBar("Can't open ${node.name}: not a text file") },
         )
+    }
+
+    /** Opens (or focuses) a file and scrolls the editor to a line/column. */
+    private fun openFileAt(path: String, line: Int, column: Int) {
+        val existing = workspace.openFiles.value.firstOrNull { it.path == path }
+        if (existing != null) {
+            workspace.setActiveFile(path)
+            requestScrollTo(existing.content, line, column)
+            return
+        }
+        tryToExecute(
+            callee = { readFile(path) },
+            onSuccess = { content ->
+                val opened = OpenFileState(
+                    path = path,
+                    relativePath = relativeTo(path),
+                    name = path.substringAfterLast('/'),
+                    content = content,
+                    dirty = false,
+                )
+                workspace.setOpenFiles(workspace.openFiles.value + opened)
+                workspace.setActiveFile(path)
+                requestScrollTo(content, line, column)
+            },
+            onError = { showSnackBar("Can't open ${path.substringAfterLast('/')}") },
+        )
+    }
+
+    private fun requestScrollTo(content: String, line: Int, column: Int) {
+        val offset = offsetOfLocation(content, line, column)
+        updateState { it.copy(scrollRequest = ScrollRequest(offset, System.nanoTime())) }
+    }
+
+    private fun offsetOfLocation(content: String, line: Int, column: Int): Int {
+        var offset = 0
+        var current = 1
+        while (current < line) {
+            val next = content.indexOf('\n', offset)
+            if (next == -1) break
+            offset = next + 1
+            current++
+        }
+        val lineEnd = content.indexOf('\n', offset).let { if (it == -1) content.length else it }
+        return (offset + (column - 1).coerceAtLeast(0)).coerceAtMost(lineEnd)
     }
 
     override fun onNodeLongPress(row: TreeRow) {
@@ -308,6 +378,138 @@ class EditorViewModel(
         )
     }
 
+    // ── Search ────────────────────────────────────────────────────────────────
+
+    override fun onToggleSearch() {
+        updateState {
+            if (it.searchVisible) {
+                it.copy(
+                    searchVisible = false,
+                    searchQuery = "",
+                    replaceQuery = "",
+                    searchInProject = false,
+                    matches = emptyList(),
+                    activeMatchIndex = -1,
+                    projectResults = emptyList(),
+                    searchingProject = false,
+                )
+            } else {
+                it.copy(searchVisible = true)
+            }
+        }
+    }
+
+    override fun onSearchQueryChange(query: String) {
+        val active = currentState().activeFile
+        val matches = if (active != null) computeMatches(active.content, query) else emptyList()
+        updateState {
+            it.copy(
+                searchQuery = query,
+                matches = matches,
+                activeMatchIndex = if (matches.isEmpty()) -1 else 0,
+            )
+        }
+        if (matches.isNotEmpty()) scrollToMatch(0)
+        if (currentState().searchInProject) scheduleProjectSearch()
+    }
+
+    override fun onReplaceQueryChange(text: String) {
+        updateState { it.copy(replaceQuery = text) }
+    }
+
+    override fun onSearchNext() = stepMatch(+1)
+
+    override fun onSearchPrev() = stepMatch(-1)
+
+    private fun stepMatch(delta: Int) {
+        val state = currentState()
+        if (state.matches.isEmpty()) return
+        val next = (state.activeMatchIndex + delta).mod(state.matches.size)
+        updateState { it.copy(activeMatchIndex = next) }
+        scrollToMatch(next)
+    }
+
+    private fun scrollToMatch(index: Int) {
+        val match = currentState().matches.getOrNull(index) ?: return
+        updateState { it.copy(scrollRequest = ScrollRequest(match.start, System.nanoTime())) }
+    }
+
+    override fun onReplaceCurrent() {
+        val state = currentState()
+        val active = state.activeFile ?: return
+        val match = state.matches.getOrNull(state.activeMatchIndex) ?: return
+        val newText = active.content.replaceRange(match.start, match.end, state.replaceQuery)
+        applyProgrammaticEdit(active, newText)
+        updateState { it.copy(scrollRequest = ScrollRequest(match.start, System.nanoTime())) }
+    }
+
+    override fun onReplaceAll() {
+        val state = currentState()
+        val active = state.activeFile ?: return
+        if (state.matches.isEmpty()) return
+        val builder = StringBuilder(active.content)
+        for (match in state.matches.asReversed()) {
+            builder.replace(match.start, match.end, state.replaceQuery)
+        }
+        applyProgrammaticEdit(active, builder.toString())
+        showSnackBar("Replaced ${state.matches.size} occurrence(s)")
+    }
+
+    /** An edit not typed by the user (replace): always gets its own undo snapshot. */
+    private fun applyProgrammaticEdit(current: OpenFileState, newText: String) {
+        if (current.content == newText) return
+        val stack = undoStacks.getOrPut(current.path) { ArrayDeque() }
+        stack.addLast(current.content)
+        if (stack.size > UNDO_LIMIT) stack.removeFirst()
+        redoStacks[current.path]?.clear()
+        lastEditPath = null
+        setActiveContent(current.path, newText)
+        scheduleAutoSave()
+    }
+
+    override fun onSearchScopeChange(inProject: Boolean) {
+        updateState { it.copy(searchInProject = inProject) }
+        if (inProject) scheduleProjectSearch(immediate = true)
+    }
+
+    private fun scheduleProjectSearch(immediate: Boolean = false) {
+        projectSearchJob?.cancel()
+        val project = workspace.currentProject.value ?: return
+        val query = currentState().searchQuery
+        if (query.isBlank()) {
+            updateState { it.copy(projectResults = emptyList(), searchingProject = false) }
+            return
+        }
+        projectSearchJob = viewModelScope.launch {
+            if (!immediate) delay(PROJECT_SEARCH_DEBOUNCE_MS)
+            updateState { it.copy(searchingProject = true) }
+            tryToExecute(
+                callee = { searchProject(project, query) },
+                onSuccess = { results ->
+                    updateState { it.copy(projectResults = results, searchingProject = false) }
+                },
+                onError = { updateState { it.copy(searchingProject = false) } },
+                inScope = this,
+            ).join()
+        }
+    }
+
+    override fun onOpenSearchResult(match: SearchMatch) {
+        updateState { it.copy(searchInProject = false) }
+        openFileAt(match.path, match.lineNumber, match.columnStart + 1)
+    }
+
+    private fun computeMatches(content: String, query: String): List<MatchRange> {
+        if (query.isEmpty() || content.length > MAX_SEARCHABLE_CHARS) return emptyList()
+        val matches = mutableListOf<MatchRange>()
+        var index = content.indexOf(query, 0, ignoreCase = true)
+        while (index >= 0 && matches.size < MAX_MATCHES) {
+            matches += MatchRange(index, index + query.length)
+            index = content.indexOf(query, index + query.length, ignoreCase = true)
+        }
+        return matches
+    }
+
     override fun onRun() {
         val project = workspace.currentProject.value ?: return
         if (buildSession.isRunning) {
@@ -338,5 +540,8 @@ class EditorViewModel(
         const val UNDO_COALESCE_MS = 800L
         const val UNDO_LIMIT = 100
         const val AUTO_SAVE_DEBOUNCE_MS = 1200L
+        const val MAX_MATCHES = 500
+        const val MAX_SEARCHABLE_CHARS = 200_000
+        const val PROJECT_SEARCH_DEBOUNCE_MS = 350L
     }
 }
