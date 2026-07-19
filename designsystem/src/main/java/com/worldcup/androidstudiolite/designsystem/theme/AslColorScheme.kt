@@ -55,6 +55,8 @@ data class AslSyntaxColors(
     val comment: Color,
     val number: Color,
     val plain: Color,
+    val type: Color,
+    val todo: Color,
 )
 
 val AslDarkColors = AslColorScheme(
@@ -103,6 +105,8 @@ val AslDarkColors = AslColorScheme(
         comment = Color(0xFF808080),
         number = Color(0xFFA8C8FF),
         plain = Color(0xFFE5E2E1),
+        type = Color(0xFF6BC6C4),
+        todo = Color(0xFFA8C023),
     ),
 )
 

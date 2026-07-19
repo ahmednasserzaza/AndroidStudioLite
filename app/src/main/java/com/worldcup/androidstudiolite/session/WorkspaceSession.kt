@@ -15,14 +15,20 @@ class WorkspaceSession {
     private val _activeFilePath = MutableStateFlow<String?>(null)
     val activeFilePath = _activeFilePath.asStateFlow()
 
-    /**
-     * A cross-tab request to open a file at a location (e.g. tapping a build
-     * diagnostic navigates to the Editor tab, whose ViewModel consumes this).
-     */
     private val _pendingOpen = MutableStateFlow<OpenLocation?>(null)
     val pendingOpen = _pendingOpen.asStateFlow()
 
+    private val _recentFiles = MutableStateFlow<List<RecentFile>>(emptyList())
+    val recentFiles = _recentFiles.asStateFlow()
+
     val expandedDirs = mutableSetOf<String>()
+
+    fun recordRecent(file: OpenFileState) {
+        val entry = RecentFile(file.path, file.name, file.relativePath)
+        _recentFiles.value =
+            (listOf(entry) + _recentFiles.value.filterNot { it.path == entry.path })
+                .take(RECENT_LIMIT)
+    }
 
     fun requestOpen(location: OpenLocation) {
         _pendingOpen.value = location.copy(nonce = System.nanoTime())
@@ -37,6 +43,7 @@ class WorkspaceSession {
         _openFiles.value = emptyList()
         _activeFilePath.value = null
         _pendingOpen.value = null
+        _recentFiles.value = emptyList()
         expandedDirs.clear()
     }
 
@@ -45,6 +52,7 @@ class WorkspaceSession {
         _openFiles.value = emptyList()
         _activeFilePath.value = null
         _pendingOpen.value = null
+        _recentFiles.value = emptyList()
         expandedDirs.clear()
     }
 
@@ -63,6 +71,8 @@ data class OpenFileState(
     val name: String,
     val content: String,
     val dirty: Boolean,
+
+    val originalContent: String = content,
 )
 
 data class OpenLocation(
@@ -71,3 +81,11 @@ data class OpenLocation(
     val column: Int = 1,
     val nonce: Long = 0L,
 )
+
+data class RecentFile(
+    val path: String,
+    val name: String,
+    val relativePath: String,
+)
+
+private const val RECENT_LIMIT = 20

@@ -1,8 +1,11 @@
 package com.worldcup.androidstudiolite.feature.editor
 
+import com.worldcup.androidstudiolite.entities.BuildDiagnostic
 import com.worldcup.androidstudiolite.entities.FileNode
 import com.worldcup.androidstudiolite.entities.SearchMatch
+import com.worldcup.androidstudiolite.feature.editor.ui.LintIssue
 import com.worldcup.androidstudiolite.session.OpenFileState
+import com.worldcup.androidstudiolite.session.RecentFile
 
 data class EditorUiState(
     val projectName: String? = null,
@@ -23,16 +26,24 @@ data class EditorUiState(
     val projectResults: List<SearchMatch> = emptyList(),
     val searchingProject: Boolean = false,
     val scrollRequest: ScrollRequest? = null,
+
+    val diagnostics: List<BuildDiagnostic> = emptyList(),
+
+    val lintIssues: List<LintIssue> = emptyList(),
+
+    val changedLines: Set<Int> = emptySet(),
+
+    val goToLine: Int? = null,
+    val recentVisible: Boolean = false,
+    val recentFiles: List<RecentFile> = emptyList(),
 )
 
 data class TreeRow(val node: FileNode, val expanded: Boolean)
 
 data class FileActionTarget(val node: FileNode)
 
-/** A match in the active file, as character offsets into its content. */
 data class MatchRange(val start: Int, val end: Int)
 
-/** One-shot request to scroll the editor to a character offset (nonce retriggers). */
 data class ScrollRequest(val offset: Int, val nonce: Long)
 
 sealed interface EditorEffect {
@@ -64,4 +75,8 @@ interface EditorInteractionListener {
     fun onReplaceAll()
     fun onSearchScopeChange(inProject: Boolean)
     fun onOpenSearchResult(match: SearchMatch)
+    fun onGoToLine()
+    fun onShowRecent(show: Boolean)
+    fun onOpenRecent(path: String)
+    fun onJumpToLine(line: Int)
 }

@@ -14,4 +14,7 @@ interface SettingsRepository {
 
     fun onboardingDone(): Flow<Boolean>
     suspend fun setOnboardingDone(done: Boolean)
+
+    fun lastProjectId(): Flow<String>
+    suspend fun setLastProjectId(id: String)
 }

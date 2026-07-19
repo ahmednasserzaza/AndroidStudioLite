@@ -40,7 +40,6 @@ class SettingsDataSource(private val context: Context) {
         legacy.edit().putBoolean("migrated_to_secure", true).apply()
     }
 
-
     var githubToken: String
         get() = secure.getString(KEY_GITHUB_TOKEN, "") ?: ""
         set(value) {
@@ -73,6 +72,12 @@ class SettingsDataSource(private val context: Context) {
         store.edit { it[ONBOARDING_DONE] = done }
     }
 
+    val lastProjectId: Flow<String> = store.data.map { it[LAST_PROJECT_ID] ?: "" }
+
+    suspend fun setLastProjectId(id: String) {
+        store.edit { it[LAST_PROJECT_ID] = id }
+    }
+
     private fun legacyString(key: String): String =
         context.getSharedPreferences("asl_settings", Context.MODE_PRIVATE)
             .getString(key, "") ?: ""
@@ -84,5 +89,6 @@ class SettingsDataSource(private val context: Context) {
         private val GITHUB_OWNER = stringPreferencesKey("github_owner")
         private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val PRIVATE_REPOS = booleanPreferencesKey("private_repos")
+        private val LAST_PROJECT_ID = stringPreferencesKey("last_project_id")
     }
 }

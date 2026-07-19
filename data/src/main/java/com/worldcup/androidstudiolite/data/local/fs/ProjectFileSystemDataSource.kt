@@ -69,7 +69,6 @@ class ProjectFileSystemDataSource(context: Context) {
         return updated
     }
 
-    /** Best-effort applicationId/namespace detection from the pulled Gradle files. */
     private fun detectPackageName(projectDir: File): String? {
         val gradleFiles = projectDir.walkTopDown()
             .onEnter { it.name !in HIDDEN_DIRS }

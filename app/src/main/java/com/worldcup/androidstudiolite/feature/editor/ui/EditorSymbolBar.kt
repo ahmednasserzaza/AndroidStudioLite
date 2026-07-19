@@ -1,7 +1,8 @@
 package com.worldcup.androidstudiolite.feature.editor.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,8 @@ import com.worldcup.androidstudiolite.designsystem.foundation.AslText
 import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
 
+const val SMART_TAB_SNIPPET = "\t"
+
 @Composable
 fun EditorSymbolBar(
     canUndo: Boolean,
@@ -32,6 +35,7 @@ fun EditorSymbolBar(
     onRedo: () -> Unit,
     onInsert: (String) -> Unit,
     onToggleComment: () -> Unit,
+    onCaretMove: (Int) -> Unit,
     onHideKeyboard: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -56,6 +60,9 @@ fun EditorSymbolBar(
                 contentDescription = "Redo",
             )
             KeyDivider()
+            SymbolKey("◀", onClick = { onCaretMove(-1) })
+            SymbolKey("▶", onClick = { onCaretMove(+1) })
+            KeyDivider()
             SymbolKey("//", onClick = onToggleComment)
             KeyDivider()
             Row(
@@ -65,8 +72,12 @@ fun EditorSymbolBar(
                     .horizontalScroll(rememberScrollState()),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SYMBOL_KEYS.forEach { (label, snippet) ->
-                    SymbolKey(label, onClick = { onInsert(snippet) })
+                SYMBOL_KEYS.forEach { key ->
+                    SymbolKey(
+                        label = key.label,
+                        onClick = { onInsert(key.snippet) },
+                        onLongClick = key.altSnippet?.let { alt -> { onInsert(alt) } },
+                    )
                 }
             }
             KeyDivider()
@@ -95,17 +106,23 @@ private fun KeyDivider() {
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SymbolKey(label: String, onClick: () -> Unit) {
+private fun SymbolKey(
+    label: String,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+) {
     Box(
         Modifier
             .fillMaxHeight()
             .widthIn(min = 36.dp)
             .clip(AslTheme.shapes.default)
-            .clickable(
+            .combinedClickable(
                 interactionSource = null,
                 indication = AslIndication,
                 onClick = onClick,
+                onLongClick = onLongClick,
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -113,34 +130,36 @@ private fun SymbolKey(label: String, onClick: () -> Unit) {
     }
 }
 
+private data class SymbolKeyDef(val label: String, val snippet: String, val altSnippet: String? = null)
+
 private val SYMBOL_KEYS = listOf(
-    "⇥" to "    ",
-    "{" to "{",
-    "}" to "}",
-    "(" to "(",
-    ")" to ")",
-    ";" to ";",
-    ":" to ":",
-    "." to ".",
-    "," to ",",
-    "=" to "=",
-    "\"" to "\"",
-    "<" to "<",
-    ">" to ">",
-    "[" to "[",
-    "]" to "]",
-    "->" to " -> ",
-    "+" to "+",
-    "-" to "-",
-    "*" to "*",
-    "/" to "/",
-    "!" to "!",
-    "?" to "?",
-    "&" to "&",
-    "|" to "|",
-    "_" to "_",
-    "@" to "@",
-    "$" to "$",
-    "#" to "#",
-    "'" to "'",
+    SymbolKeyDef("⇥", SMART_TAB_SNIPPET),
+    SymbolKeyDef("{", "{", "{}"),
+    SymbolKeyDef("}", "}"),
+    SymbolKeyDef("(", "(", "()"),
+    SymbolKeyDef(")", ")"),
+    SymbolKeyDef(";", ";"),
+    SymbolKeyDef(":", ":"),
+    SymbolKeyDef(".", "."),
+    SymbolKeyDef(",", ","),
+    SymbolKeyDef("=", "=", " == "),
+    SymbolKeyDef("\"", "\"", "\"\"\""),
+    SymbolKeyDef("<", "<", "<>"),
+    SymbolKeyDef(">", ">", " -> "),
+    SymbolKeyDef("[", "[", "[]"),
+    SymbolKeyDef("]", "]"),
+    SymbolKeyDef("->", " -> "),
+    SymbolKeyDef("+", "+"),
+    SymbolKeyDef("-", "-"),
+    SymbolKeyDef("*", "*"),
+    SymbolKeyDef("/", "/"),
+    SymbolKeyDef("!", "!", " != "),
+    SymbolKeyDef("?", "?", "?: "),
+    SymbolKeyDef("&", "&", " && "),
+    SymbolKeyDef("|", "|", " || "),
+    SymbolKeyDef("_", "_"),
+    SymbolKeyDef("@", "@"),
+    SymbolKeyDef("$", "$", "\${}"),
+    SymbolKeyDef("#", "#"),
+    SymbolKeyDef("'", "'"),
 )

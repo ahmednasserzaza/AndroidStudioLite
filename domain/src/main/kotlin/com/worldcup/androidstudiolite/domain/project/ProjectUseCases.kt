@@ -2,7 +2,9 @@ package com.worldcup.androidstudiolite.domain.project
 
 import com.worldcup.androidstudiolite.domain.exception.DomainException
 import com.worldcup.androidstudiolite.domain.repository.ProjectRepository
+import com.worldcup.androidstudiolite.domain.repository.SettingsRepository
 import com.worldcup.androidstudiolite.entities.Project
+import kotlinx.coroutines.flow.first
 
 class GetProjectsUseCase(private val projects: ProjectRepository) {
     suspend operator fun invoke(): List<Project> = projects.listProjects()
@@ -26,11 +28,6 @@ class CreateProjectUseCase(private val projects: ProjectRepository) {
                 .trim('-')
                 .ifEmpty { "project" }
 
-        /**
-         * The GitHub repo name for a project: the project name itself, only
-         * adjusted where GitHub requires it (no spaces/special characters).
-         * "Test App" → "Test-App".
-         */
         fun repoName(name: String): String =
             name.trim()
                 .replace(Regex("[^A-Za-z0-9._-]+"), "-")
@@ -44,6 +41,21 @@ class CreateProjectUseCase(private val projects: ProjectRepository) {
 
 class DeleteProjectUseCase(private val projects: ProjectRepository) {
     suspend operator fun invoke(project: Project) = projects.deleteProject(project)
+}
+
+class SaveLastProjectUseCase(private val settings: SettingsRepository) {
+    suspend operator fun invoke(project: Project?) = settings.setLastProjectId(project?.id ?: "")
+}
+
+class GetLastProjectUseCase(
+    private val projects: ProjectRepository,
+    private val settings: SettingsRepository,
+) {
+    suspend operator fun invoke(): Project? {
+        val id = settings.lastProjectId().first()
+        if (id.isBlank()) return null
+        return projects.listProjects().firstOrNull { it.id == id }
+    }
 }
 
 class RepairProjectInfrastructureUseCase(private val projects: ProjectRepository) {

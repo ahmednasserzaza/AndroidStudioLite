@@ -39,7 +39,6 @@ class GitHubDataSource(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-
     private suspend fun api(
         method: HttpMethod,
         url: String,
@@ -105,7 +104,6 @@ class GitHubDataSource(
         header("X-GitHub-Api-Version", "2022-11-28")
     }
 
-
     suspend fun fetchLogin(token: String? = null): String = withContext(Dispatchers.IO) {
         val bearer = token ?: tokenProvider()
         if (bearer.isBlank()) {
@@ -138,7 +136,6 @@ class GitHubDataSource(
         json.parseToJsonElement(response.bodyAsText())
             .jsonObject.getValue("login").jsonPrimitive.content
     }
-
 
     suspend fun ensureRepo(
         owner: String,
@@ -181,7 +178,6 @@ class GitHubDataSource(
         }
         throw DomainException.GitHub("Repository was created but its default branch never appeared")
     }
-
 
     suspend fun pushProject(
         owner: String,
@@ -260,7 +256,6 @@ class GitHubDataSource(
         file.extension.lowercase() in
             setOf("keystore", "jks", "png", "jpg", "jpeg", "webp", "jar", "so", "zip")
 
-
     suspend fun findRun(owner: String, repo: String, commitSha: String): JsonObject? =
         withContext(Dispatchers.IO) {
             val runs = api(HttpMethod.Get, "/repos/$owner/$repo/actions/runs?head_sha=$commitSha")
@@ -295,7 +290,6 @@ class GitHubDataSource(
         }
     }
 
-
     suspend fun downloadApkArtifact(owner: String, repo: String, runId: Long, destDir: File): File =
         withContext(Dispatchers.IO) {
             val artifacts = api(HttpMethod.Get, "/repos/$owner/$repo/actions/runs/$runId/artifacts")
@@ -327,7 +321,6 @@ class GitHubDataSource(
                 throw DomainException.GitHub("Artifact did not contain an APK")
             }
         }
-
 
     suspend fun pullProject(owner: String, repo: String, projectDir: File, branch: String = BRANCH): Int =
         withContext(Dispatchers.IO) {
@@ -361,7 +354,6 @@ class GitHubDataSource(
                 count
             }
         }
-
 
     suspend fun listUserRepos(limit: Int = 100): JsonArray = withContext(Dispatchers.IO) {
         api(HttpMethod.Get, "/user/repos?per_page=$limit&sort=updated")

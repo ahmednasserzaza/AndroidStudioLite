@@ -6,6 +6,7 @@ import com.worldcup.androidstudiolite.domain.project.DeleteProjectUseCase
 import com.worldcup.androidstudiolite.domain.project.GetProjectsUseCase
 import com.worldcup.androidstudiolite.domain.project.ImportRepoUseCase
 import com.worldcup.androidstudiolite.domain.project.ListImportableReposUseCase
+import com.worldcup.androidstudiolite.domain.project.SaveLastProjectUseCase
 import com.worldcup.androidstudiolite.domain.settings.ObserveGitHubConnectionUseCase
 import com.worldcup.androidstudiolite.domain.settings.ObservePrivateReposUseCase
 import com.worldcup.androidstudiolite.entities.Project
@@ -20,6 +21,7 @@ class ProjectsViewModel(
     private val deleteProject: DeleteProjectUseCase,
     private val listImportableRepos: ListImportableReposUseCase,
     private val importRepo: ImportRepoUseCase,
+    private val saveLastProject: SaveLastProjectUseCase,
     private val githubConnection: ObserveGitHubConnectionUseCase,
     private val observePrivateRepos: ObservePrivateReposUseCase,
     private val workspace: WorkspaceSession,
@@ -52,6 +54,7 @@ class ProjectsViewModel(
 
     override fun onOpenProject(project: Project) {
         workspace.openProject(project)
+        tryToExecute(callee = { saveLastProject(project) })
         sendNewEffect(ProjectsEffect.NavigateToEditor)
     }
 
@@ -68,7 +71,10 @@ class ProjectsViewModel(
         tryToExecute(
             callee = { deleteProject(project) },
             onSuccess = {
-                if (workspace.currentProject.value?.id == project.id) workspace.closeProject()
+                if (workspace.currentProject.value?.id == project.id) {
+                    workspace.closeProject()
+                    tryToExecute(callee = { saveLastProject(null) })
+                }
                 showSnackBar("Deleted ${project.name}")
                 onRefresh()
             },

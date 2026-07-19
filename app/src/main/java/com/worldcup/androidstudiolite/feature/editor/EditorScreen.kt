@@ -1,5 +1,6 @@
 package com.worldcup.androidstudiolite.feature.editor
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,6 +10,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,12 +21,14 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -40,6 +44,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -61,11 +66,19 @@ import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
 import com.worldcup.androidstudiolite.feature.base.CollectEffects
 import com.worldcup.androidstudiolite.feature.editor.ui.CodeEditorField
+import com.worldcup.androidstudiolite.feature.editor.ui.CompletionEngine
 import com.worldcup.androidstudiolite.feature.editor.ui.EditorScrollRequest
 import com.worldcup.androidstudiolite.feature.editor.ui.EditorSearchBar
 import com.worldcup.androidstudiolite.feature.editor.ui.EditorSymbolBar
+import com.worldcup.androidstudiolite.feature.editor.ui.FileTypeBadge
 import com.worldcup.androidstudiolite.feature.editor.ui.MatchHighlight
 import com.worldcup.androidstudiolite.feature.editor.ui.ProjectSearchResults
+import com.worldcup.androidstudiolite.feature.editor.ui.SMART_TAB_SNIPPET
+import com.worldcup.androidstudiolite.feature.editor.ui.applyTypingAssists
+import com.worldcup.androidstudiolite.feature.editor.ui.fileBadge
+import com.worldcup.androidstudiolite.feature.editor.ui.findBracketPair
+import com.worldcup.androidstudiolite.feature.editor.ui.smartTabInsertion
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -85,7 +98,6 @@ fun EditorScreen(
         }
     }
 
-    // Save-on-navigate: flush pending edits when the app is backgrounded.
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { listener.onFlushSave() }
 
     if (state.projectName == null) {
@@ -108,8 +120,13 @@ fun EditorScreen(
 
     fun insertSnippet(snippet: String) {
         val selection = editorValue.selection
-        val newText = editorValue.text.replaceRange(selection.min, selection.max, snippet)
-        fieldValue = TextFieldValue(newText, TextRange(selection.min + snippet.length))
+        val resolved = if (snippet == SMART_TAB_SNIPPET) {
+            smartTabInsertion(editorValue.text, selection.min)
+        } else {
+            snippet
+        }
+        val newText = editorValue.text.replaceRange(selection.min, selection.max, resolved)
+        fieldValue = TextFieldValue(newText, TextRange(selection.min + snippetCaret(resolved)))
         listener.onEditContent(newText)
     }
 
@@ -120,8 +137,51 @@ fun EditorScreen(
         listener.onEditContent(updated.text)
     }
 
+    fun moveCaret(delta: Int) {
+        val target = (editorValue.selection.start + delta)
+            .coerceIn(0, editorValue.text.length)
+        fieldValue = editorValue.copy(selection = TextRange(target))
+    }
+
+    val bracketOffsets = remember(editorValue.text, editorValue.selection) {
+        if (editorValue.selection.collapsed && editorValue.text.length <= MAX_ASSIST_CHARS) {
+            findBracketPair(editorValue.text, editorValue.selection.start)
+                ?.let { listOf(it.first, it.second) }.orEmpty()
+        } else {
+            emptyList()
+        }
+    }
+
+    val currentPrefix = remember(editorValue.text, editorValue.selection) {
+        wordPrefixAt(editorValue.text, editorValue.selection)
+    }
+    var suggestions by remember { mutableStateOf(emptyList<String>()) }
+    LaunchedEffect(currentPrefix, active?.path) {
+        if (currentPrefix.length < 2 || active == null) {
+            suggestions = emptyList()
+            return@LaunchedEffect
+        }
+        delay(COMPLETION_DEBOUNCE_MS)
+        suggestions = CompletionEngine.suggest(
+            prefix = currentPrefix,
+            activeContent = active.content,
+            otherContents = state.openFiles.filter { it.path != active.path }.map { it.content },
+        )
+    }
+
+    fun applyCompletion(word: String) {
+        val caret = editorValue.selection.start
+        val start = caret - currentPrefix.length
+        if (start < 0) return
+        val newText = editorValue.text.replaceRange(start, caret, word)
+        fieldValue = TextFieldValue(newText, TextRange(start + word.length))
+        listener.onEditContent(newText)
+    }
+
     val configuration = LocalConfiguration.current
     val wide = configuration.screenWidthDp >= 600
+    val hardwareKeyboard = configuration.keyboard != Configuration.KEYBOARD_NOKEYS
+    val symbolBarVisible = active != null && (WindowInsets.isImeVisible || hardwareKeyboard)
 
     Box(Modifier.fillMaxSize().background(AslTheme.colors.background)) {
         Column(Modifier.fillMaxSize().imePadding()) {
@@ -131,6 +191,12 @@ fun EditorScreen(
                     AslIcon(AslIcons.Android, tint = AslTheme.colors.primaryContainer)
                 },
                 actions = {
+                    AslIconButton(
+                        AslIcons.History,
+                        onClick = { listener.onShowRecent(true) },
+                        tint = AslTheme.colors.onSurfaceVariant,
+                        contentDescription = "Recent files",
+                    )
                     AslIconButton(
                         AslIcons.Search,
                         onClick = listener::onToggleSearch,
@@ -156,8 +222,15 @@ fun EditorScreen(
             )
 
             AslTabRow(
-                tabs = state.openFiles.map {
-                    AslTab(id = it.path, title = it.name, modified = it.dirty)
+                tabs = state.openFiles.map { file ->
+                    val badge = fileBadge(file.name)
+                    AslTab(
+                        id = file.path,
+                        title = file.name,
+                        modified = file.dirty,
+                        badge = badge.label,
+                        badgeColor = badge.color,
+                    )
                 },
                 selectedId = state.activeFile?.path,
                 onSelect = { listener.onSelectTab(it.id) },
@@ -168,7 +241,15 @@ fun EditorScreen(
                 EditorSearchBar(state = state, listener = listener)
             }
 
-            // Place the cursor at the target of a jump (search match, diagnostic).
+            if (active != null) {
+                BreadcrumbBar(
+                    relativePath = active.relativePath,
+                    onNavigate = { if (!state.treeVisible) listener.onToggleTree() },
+                )
+            }
+
+            ProblemBanner(state, listener)
+
             LaunchedEffect(state.scrollRequest) {
                 val request = state.scrollRequest ?: return@LaunchedEffect
                 if (request.offset <= editorValue.text.length) {
@@ -196,7 +277,7 @@ fun EditorScreen(
                             value = editorValue,
                             fileName = active.name,
                             onValueChange = { newValue ->
-                                val adjusted = autoIndentNewline(editorValue, newValue)
+                                val adjusted = applyTypingAssists(editorValue, newValue)
                                 fieldValue = adjusted
                                 if (adjusted.text != active.content) {
                                     listener.onEditContent(adjusted.text)
@@ -210,6 +291,10 @@ fun EditorScreen(
                                     active = index == state.activeMatchIndex,
                                 )
                             },
+                            bracketOffsets = bracketOffsets,
+                            errorLines = state.diagnostics.map { it.line - 1 }.toSet(),
+                            warningLines = state.lintIssues.map { it.line }.toSet(),
+                            changedLines = state.changedLines,
                             scrollRequest = state.scrollRequest?.let {
                                 EditorScrollRequest(it.offset, it.nonce)
                             },
@@ -227,13 +312,16 @@ fun EditorScreen(
                     }
                 }
 
-                // Overlay drawer on narrow (phone) windows.
                 if (!wide) {
                     FileTreeDrawer(state = state, listener = listener)
                 }
             }
 
-            if (active != null && WindowInsets.isImeVisible) {
+            if (symbolBarVisible && suggestions.isNotEmpty()) {
+                CompletionBar(suggestions, onPick = ::applyCompletion)
+            }
+
+            if (symbolBarVisible) {
                 val focusManager = LocalFocusManager.current
                 val keyboard = LocalSoftwareKeyboardController.current
                 EditorSymbolBar(
@@ -243,6 +331,7 @@ fun EditorScreen(
                     onRedo = listener::onRedo,
                     onInsert = ::insertSnippet,
                     onToggleComment = ::toggleComment,
+                    onCaretMove = ::moveCaret,
                     onHideKeyboard = {
                         focusManager.clearFocus()
                         keyboard?.hide()
@@ -255,6 +344,143 @@ fun EditorScreen(
 
         state.fileAction?.let { target ->
             FileActionDialog(target, listener)
+        }
+
+        if (state.recentVisible) {
+            RecentFilesDialog(state, listener)
+        }
+    }
+}
+
+@Composable
+private fun BreadcrumbBar(relativePath: String, onNavigate: () -> Unit) {
+    val segments = relativePath.split('/')
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(AslTheme.colors.panel)
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = AslTheme.spacing.sm, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        segments.forEachIndexed { index, segment ->
+            val isLast = index == segments.lastIndex
+            AslText(
+                segment,
+                style = AslTheme.typography.uiLabelSmall,
+                color = if (isLast) AslTheme.colors.onSurface else AslTheme.colors.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.clickable(onClick = onNavigate),
+            )
+            if (!isLast) {
+                AslIcon(
+                    AslIcons.ChevronRight,
+                    size = 12.dp,
+                    tint = AslTheme.colors.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 2.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProblemBanner(state: EditorUiState, listener: EditorInteractionListener) {
+    val diagnostic = state.diagnostics.firstOrNull()
+    val lint = state.lintIssues.firstOrNull()
+    val (message, line, color) = when {
+        diagnostic != null -> Triple(
+            "Line ${diagnostic.line}: ${diagnostic.message}",
+            diagnostic.line,
+            AslTheme.colors.error,
+        )
+        lint != null -> Triple(
+            "Line ${lint.line + 1}: ${lint.message}",
+            lint.line + 1,
+            AslTheme.colors.tertiaryContainer,
+        )
+        else -> return
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(color.copy(alpha = 0.12f))
+            .clickable { listener.onJumpToLine(line) }
+            .padding(horizontal = AslTheme.spacing.sm, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AslTheme.spacing.xs),
+    ) {
+        AslIcon(AslIcons.Error, size = 12.dp, tint = color)
+        AslText(
+            message,
+            style = AslTheme.typography.uiLabelSmall,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun CompletionBar(suggestions: List<String>, onPick: (String) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(AslTheme.colors.popover)
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = AslTheme.spacing.xs, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(AslTheme.spacing.xs),
+    ) {
+        suggestions.forEach { word ->
+            Box(
+                Modifier
+                    .background(AslTheme.colors.surfaceContainerHigh, AslTheme.shapes.default)
+                    .clickable { onPick(word) }
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            ) {
+                AslText(word, style = AslTheme.typography.codeSmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentFilesDialog(state: EditorUiState, listener: EditorInteractionListener) {
+    AslDialog(
+        title = "Recent Files",
+        onDismissRequest = { listener.onShowRecent(false) },
+    ) {
+        val entries = state.recentFiles.filter { it.path != state.activeFile?.path }
+        if (entries.isEmpty()) {
+            AslText(
+                "No recent files yet.",
+                color = AslTheme.colors.onSurfaceVariant,
+            )
+            return@AslDialog
+        }
+        LazyColumn(Modifier.heightIn(max = 380.dp)) {
+            items(entries, key = { it.path }) { recent ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { listener.onOpenRecent(recent.path) }
+                        .padding(vertical = AslTheme.spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AslTheme.spacing.sm),
+                ) {
+                    FileTypeBadge(recent.name)
+                    Column(Modifier.weight(1f)) {
+                        AslText(recent.name, style = AslTheme.typography.uiBody, maxLines = 1)
+                        AslText(
+                            recent.relativePath,
+                            style = AslTheme.typography.uiLabelSmall,
+                            color = AslTheme.colors.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -334,10 +560,8 @@ private fun FileTreePanel(
                             tint = AslTheme.colors.secondary,
                         )
                     } else {
-                        AslIcon(
-                            AslIcons.File,
-                            size = 14.dp,
-                            tint = AslTheme.colors.onSurfaceVariant,
+                        FileTypeBadge(
+                            row.node.name,
                             modifier = Modifier.padding(start = 18.dp),
                         )
                     }
@@ -429,29 +653,22 @@ private fun changedRegionEnd(old: String, new: String): Int {
     return new.length - suffix
 }
 
-/**
- * When a single newline is typed, carry the previous line's leading whitespace onto
- * the new line, plus one indent step after an opening `{` or `(`.
- */
-private fun autoIndentNewline(old: TextFieldValue, new: TextFieldValue): TextFieldValue {
-    if (new.text.length != old.text.length + 1) return new
-    if (!new.selection.collapsed) return new
-    val insertPos = new.selection.start - 1
-    if (insertPos < 0 || insertPos >= new.text.length || new.text[insertPos] != '\n') return new
-
-    val lineStart = new.text.lastIndexOf('\n', insertPos - 1) + 1
-    val prevLine = new.text.substring(lineStart, insertPos)
-    val indent = prevLine.takeWhile { it == ' ' || it == '\t' }
-    val trimmed = prevLine.trimEnd()
-    val extra = if (trimmed.endsWith("{") || trimmed.endsWith("(")) INDENT_STEP else ""
-    val insertion = indent + extra
-    if (insertion.isEmpty()) return new
-
-    val newText = new.text.substring(0, insertPos + 1) + insertion + new.text.substring(insertPos + 1)
-    return TextFieldValue(newText, TextRange(insertPos + 1 + insertion.length))
+private fun snippetCaret(snippet: String): Int = when (snippet) {
+    "{}", "()", "[]", "<>", "\"\"", "''" -> 1
+    "\${}" -> 2
+    else -> snippet.length
 }
 
-/** Comments or uncomments every line touched by the current selection. */
+private fun wordPrefixAt(text: String, selection: TextRange): String {
+    if (!selection.collapsed) return ""
+    val caret = selection.start.coerceIn(0, text.length)
+    var start = caret
+    while (start > 0 && (text[start - 1].isLetterOrDigit() || text[start - 1] == '_')) start--
+
+    if (start == caret || text[start].isDigit()) return ""
+    return text.substring(start, caret)
+}
+
 private fun toggleLineComment(value: TextFieldValue, fileName: String): TextFieldValue {
     val token = lineCommentToken(fileName)
     val text = value.text
@@ -489,7 +706,8 @@ private fun lineCommentToken(fileName: String): String =
         else -> "//"
     }
 
-private const val INDENT_STEP = "    "
+private const val MAX_ASSIST_CHARS = 200_000
+private const val COMPLETION_DEBOUNCE_MS = 150L
 
 @Composable
 private fun NoProjectPlaceholder(onNavigateToProjects: () -> Unit) {

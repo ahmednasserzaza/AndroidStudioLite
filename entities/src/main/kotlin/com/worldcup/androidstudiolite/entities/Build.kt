@@ -25,7 +25,6 @@ sealed interface BuildProgress {
     ) : BuildProgress
 }
 
-/** A compiler/build error parsed from CI logs, pointing at a project file location. */
 data class BuildDiagnostic(
     val relativePath: String,
     val line: Int,

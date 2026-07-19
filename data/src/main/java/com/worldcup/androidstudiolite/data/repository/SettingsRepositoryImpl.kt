@@ -28,4 +28,8 @@ class SettingsRepositoryImpl(
     override fun onboardingDone(): Flow<Boolean> = local.onboardingDone
 
     override suspend fun setOnboardingDone(done: Boolean) = local.setOnboardingDone(done)
+
+    override fun lastProjectId(): Flow<String> = local.lastProjectId
+
+    override suspend fun setLastProjectId(id: String) = local.setLastProjectId(id)
 }

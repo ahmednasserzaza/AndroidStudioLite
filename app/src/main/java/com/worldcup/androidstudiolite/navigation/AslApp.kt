@@ -2,12 +2,13 @@ package com.worldcup.androidstudiolite.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -31,7 +32,7 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
 private val NAV_ITEMS = listOf(
-    AslNavItem("projects", "Project", AslIcons.Folder),
+    AslNavItem("projects", "Projects", AslIcons.Folder),
     AslNavItem("editor", "Editor", AslIcons.Code),
     AslNavItem("vcs", "VCS", AslIcons.GitBranch),
 )
@@ -49,9 +50,18 @@ private fun navKeyFor(id: String): NavKey = when (id) {
     else -> ProjectsKey
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AslApp(onboarded: Boolean) {
-    val backStack = rememberNavBackStack(if (onboarded) ProjectsKey else OnboardingKey)
+fun AslApp(onboarded: Boolean, startInEditor: Boolean = false) {
+    val backStack = rememberNavBackStack(
+        *when {
+            !onboarded -> arrayOf<NavKey>(OnboardingKey)
+            startInEditor -> arrayOf<NavKey>(ProjectsKey, EditorKey)
+            else -> arrayOf<NavKey>(ProjectsKey)
+        },
+    )
+
+    val imeVisible = WindowInsets.isImeVisible
 
     fun switchTab(id: String) {
         val key = navKeyFor(id)
@@ -141,7 +151,7 @@ fun AslApp(onboarded: Boolean) {
             },
         )
 
-        if (selectedNavId != null) {
+        if (selectedNavId != null && !imeVisible) {
             AslBottomNavBar(
                 items = NAV_ITEMS,
                 selectedId = selectedNavId,

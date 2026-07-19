@@ -25,15 +25,9 @@ import com.worldcup.androidstudiolite.designsystem.foundation.AslIcon
 import com.worldcup.androidstudiolite.designsystem.foundation.AslText
 import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
-import com.worldcup.androidstudiolite.entities.SearchMatch
 import com.worldcup.androidstudiolite.feature.editor.EditorInteractionListener
 import com.worldcup.androidstudiolite.feature.editor.EditorUiState
 
-/**
- * The find/replace bar shown under the tab row, with a File/Project scope
- * toggle. In Project scope the results list is rendered by [ProjectSearchResults]
- * as an overlay over the editor area.
- */
 @Composable
 fun EditorSearchBar(
     state: EditorUiState,
@@ -54,7 +48,7 @@ fun EditorSearchBar(
             AslTextField(
                 value = state.searchQuery,
                 onValueChange = listener::onSearchQueryChange,
-                placeholder = "Search",
+                placeholder = "Search  (:42 = go to line)",
                 modifier = Modifier.weight(1f),
                 leading = {
                     AslIcon(
@@ -93,6 +87,21 @@ fun EditorSearchBar(
                 tint = AslTheme.colors.onSurfaceVariant,
                 contentDescription = "Close search",
             )
+        }
+
+        state.goToLine?.let { line ->
+            Box(
+                Modifier
+                    .background(AslTheme.colors.primary.copy(alpha = 0.14f), AslTheme.shapes.full)
+                    .clickable { listener.onGoToLine() }
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            ) {
+                AslText(
+                    "Go to line $line ↵",
+                    style = AslTheme.typography.uiLabelSmall,
+                    color = AslTheme.colors.primary,
+                )
+            }
         }
 
         Row(
@@ -151,7 +160,6 @@ private fun ScopeChip(text: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Full-size overlay listing project-wide matches; a tap opens the file at the line. */
 @Composable
 fun ProjectSearchResults(
     state: EditorUiState,
@@ -184,6 +192,7 @@ fun ProjectSearchResults(
                         ),
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(AslTheme.spacing.xs)) {
+                        FileTypeBadge(match.fileName)
                         AslText(
                             match.relativePath,
                             style = AslTheme.typography.uiLabelSmall,

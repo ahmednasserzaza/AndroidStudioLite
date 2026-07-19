@@ -12,10 +12,8 @@ interface ProjectRepository {
 
     suspend fun repairInfrastructure(project: Project)
 
-    /** Creates the local folder + metadata for a repo about to be imported. */
     suspend fun createImportShell(repo: RemoteRepo): Project
 
-    /** Fills in metadata (package name) detected from the pulled sources. */
     suspend fun finalizeImport(project: Project): Project
 }
 

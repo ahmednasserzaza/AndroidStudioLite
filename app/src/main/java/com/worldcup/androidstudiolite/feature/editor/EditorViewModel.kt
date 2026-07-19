@@ -9,9 +9,12 @@ import com.worldcup.androidstudiolite.domain.files.RenameFileEntryUseCase
 import com.worldcup.androidstudiolite.domain.files.SaveFileUseCase
 import com.worldcup.androidstudiolite.domain.files.SearchProjectUseCase
 import com.worldcup.androidstudiolite.domain.project.RepairProjectInfrastructureUseCase
+import com.worldcup.androidstudiolite.entities.BuildDiagnostic
+import com.worldcup.androidstudiolite.entities.BuildProgress
 import com.worldcup.androidstudiolite.entities.FileNode
 import com.worldcup.androidstudiolite.entities.SearchMatch
 import com.worldcup.androidstudiolite.feature.base.BaseViewModel
+import com.worldcup.androidstudiolite.feature.editor.ui.BalanceLint
 import com.worldcup.androidstudiolite.session.BuildSession
 import com.worldcup.androidstudiolite.session.OpenFileState
 import com.worldcup.androidstudiolite.session.WorkspaceSession
@@ -42,6 +45,12 @@ class EditorViewModel(
     private var lastEditAtMs = 0L
     private var autoSaveJob: Job? = null
     private var projectSearchJob: Job? = null
+    private var lintJob: Job? = null
+    private var lastLintedContent: String? = null
+
+    private var buildDiagnostics: Map<String, List<BuildDiagnostic>> = emptyMap()
+
+    private val editedSinceBuild = mutableSetOf<String>()
 
     init {
         viewModelScope.launch {
@@ -52,8 +61,10 @@ class EditorViewModel(
             ) { project, openFiles, activePath ->
                 Triple(project, openFiles, activePath)
             }.collect { (project, openFiles, activePath) ->
+                val active = openFiles.firstOrNull { f -> f.path == activePath }
+                if (active != null) workspace.recordRecent(active)
+                scheduleLint(active)
                 updateState {
-                    val active = openFiles.firstOrNull { f -> f.path == activePath }
                     val matches = if (it.searchVisible && it.searchQuery.isNotEmpty() && active != null) {
                         computeMatches(active.content, it.searchQuery)
                     } else {
@@ -71,20 +82,43 @@ class EditorViewModel(
                         },
                         canUndo = undoStacks[activePath]?.isNotEmpty() == true,
                         canRedo = redoStacks[activePath]?.isNotEmpty() == true,
+                        diagnostics = diagnosticsFor(active),
+                        changedLines = if (active != null) {
+                            changedLines(active.originalContent, active.content)
+                        } else {
+                            emptySet()
+                        },
                     )
                 }
             }
         }
         viewModelScope.launch {
             buildSession.progress.collect { progress ->
+                when (progress) {
+                    is BuildProgress.Failed -> {
+                        buildDiagnostics = progress.diagnostics.groupBy { it.relativePath }
+                        editedSinceBuild.clear()
+                    }
+                    is BuildProgress.Success -> {
+                        buildDiagnostics = emptyMap()
+                        editedSinceBuild.clear()
+                    }
+                    else -> Unit
+                }
                 updateState {
                     it.copy(
-                        buildRunning = progress is com.worldcup.androidstudiolite.entities.BuildProgress.Running,
+                        buildRunning = progress is BuildProgress.Running,
+                        diagnostics = diagnosticsFor(it.activeFile),
                     )
                 }
             }
         }
-        // Cross-tab open requests (e.g. tapping a build diagnostic).
+        viewModelScope.launch {
+            workspace.recentFiles.collect { recent ->
+                updateState { it.copy(recentFiles = recent) }
+            }
+        }
+
         viewModelScope.launch {
             workspace.pendingOpen.collect { location ->
                 val project = workspace.currentProject.value
@@ -94,21 +128,24 @@ class EditorViewModel(
                 }
             }
         }
-        loadTree(expandAll = workspace.expandedDirs.isEmpty(), openMain = true)
+        loadTree(revealMain = workspace.expandedDirs.isEmpty(), openMain = true)
     }
 
-    private fun loadTree(expandAll: Boolean = false, openMain: Boolean = false) {
+    private fun loadTree(revealMain: Boolean = false, openMain: Boolean = false) {
         val project = workspace.currentProject.value ?: return
         tryToExecute(
             callee = { getFileTree(project) },
             onSuccess = { nodes ->
                 fullTree = nodes
-                if (expandAll) {
-                    workspace.expandedDirs.addAll(nodes.filter { it.isDirectory }.map { it.path })
+                val main = nodes.firstOrNull { it.name == "MainActivity.kt" }
+
+                if (revealMain && main != null) {
+                    nodes.filter { it.isDirectory && main.path.startsWith(it.path + "/") }
+                        .forEach { workspace.expandedDirs.add(it.path) }
                 }
                 rebuildVisibleTree()
-                if (openMain && workspace.openFiles.value.isEmpty()) {
-                    nodes.firstOrNull { it.name == "MainActivity.kt" }?.let { openFile(it) }
+                if (openMain && workspace.openFiles.value.isEmpty() && main != null) {
+                    openFile(main)
                 }
             },
         )
@@ -142,7 +179,7 @@ class EditorViewModel(
             rebuildVisibleTree()
         } else {
             openFile(row.node)
-            // Auto-close the drawer so opening a file is a single gesture.
+
             updateState { it.copy(treeVisible = false) }
         }
     }
@@ -170,7 +207,6 @@ class EditorViewModel(
         )
     }
 
-    /** Opens (or focuses) a file and scrolls the editor to a line/column. */
     private fun openFileAt(path: String, line: Int, column: Int) {
         val existing = workspace.openFiles.value.firstOrNull { it.path == path }
         if (existing != null) {
@@ -305,14 +341,59 @@ class EditorViewModel(
         }
         lastEditPath = activePath
         lastEditAtMs = now
+        markEditedSinceBuild(current)
         setActiveContent(activePath, newText)
         scheduleAutoSave()
     }
 
-    /**
-     * Debounced persistence of dirty buffers. Restarted on every keystroke so the
-     * write only fires once typing settles. Does not touch the undo/redo stacks.
-     */
+    private fun markEditedSinceBuild(file: OpenFileState) {
+        if (file.relativePath in editedSinceBuild) return
+        editedSinceBuild.add(file.relativePath)
+        updateState { it.copy(diagnostics = diagnosticsFor(it.activeFile)) }
+    }
+
+    private fun diagnosticsFor(file: OpenFileState?): List<BuildDiagnostic> {
+        file ?: return emptyList()
+        if (file.relativePath in editedSinceBuild) return emptyList()
+        return buildDiagnostics[file.relativePath].orEmpty()
+    }
+
+    private fun scheduleLint(active: OpenFileState?) {
+        if (active == null) {
+            lastLintedContent = null
+            updateState { it.copy(lintIssues = emptyList()) }
+            return
+        }
+        if (active.content == lastLintedContent) return
+        lintJob?.cancel()
+        lintJob = viewModelScope.launch {
+            delay(LINT_DEBOUNCE_MS)
+            lastLintedContent = active.content
+            val issues = BalanceLint.check(active.content, active.name)
+            updateState { it.copy(lintIssues = issues) }
+        }
+    }
+
+    private fun changedLines(original: String, current: String): Set<Int> {
+        if (original == current) return emptySet()
+        if (current.length > MAX_SEARCHABLE_CHARS) return emptySet()
+        val originalLines = original.lines()
+        val currentLines = current.lines()
+        var prefix = 0
+        while (prefix < originalLines.size && prefix < currentLines.size &&
+            originalLines[prefix] == currentLines[prefix]
+        ) {
+            prefix++
+        }
+        var suffix = 0
+        while (suffix < originalLines.size - prefix && suffix < currentLines.size - prefix &&
+            originalLines[originalLines.size - 1 - suffix] == currentLines[currentLines.size - 1 - suffix]
+        ) {
+            suffix++
+        }
+        return (prefix until (currentLines.size - suffix)).toSet()
+    }
+
     private fun scheduleAutoSave() {
         autoSaveJob?.cancel()
         autoSaveJob = viewModelScope.launch {
@@ -327,8 +408,7 @@ class EditorViewModel(
         tryToExecute(
             callee = { dirty.forEach { saveFile(it.path, it.content) } },
             onSuccess = {
-                // Only clear the dirty flag for files whose content is unchanged
-                // since the write started, so edits made mid-save stay dirty.
+
                 workspace.setOpenFiles(
                     workspace.openFiles.value.map { file ->
                         val saved = dirty.firstOrNull { it.path == file.path }
@@ -343,10 +423,6 @@ class EditorViewModel(
         )
     }
 
-    /**
-     * Flush pending edits immediately. Called on tab switch (save-on-navigate) and
-     * when the app is backgrounded (lifecycle ON_STOP/ON_PAUSE) so nothing is lost.
-     */
     override fun onFlushSave() {
         autoSaveJob?.cancel()
         persistDirtyFiles()
@@ -378,8 +454,6 @@ class EditorViewModel(
         )
     }
 
-    // ── Search ────────────────────────────────────────────────────────────────
-
     override fun onToggleSearch() {
         updateState {
             if (it.searchVisible) {
@@ -400,17 +474,49 @@ class EditorViewModel(
     }
 
     override fun onSearchQueryChange(query: String) {
+        val goToLine = GO_TO_LINE_REGEX.find(query)?.groupValues?.get(1)?.toIntOrNull()
         val active = currentState().activeFile
-        val matches = if (active != null) computeMatches(active.content, query) else emptyList()
+        val matches = if (active != null && goToLine == null) {
+            computeMatches(active.content, query)
+        } else {
+            emptyList()
+        }
         updateState {
             it.copy(
                 searchQuery = query,
                 matches = matches,
                 activeMatchIndex = if (matches.isEmpty()) -1 else 0,
+                goToLine = goToLine,
             )
         }
         if (matches.isNotEmpty()) scrollToMatch(0)
         if (currentState().searchInProject) scheduleProjectSearch()
+    }
+
+    override fun onGoToLine() {
+        val line = currentState().goToLine ?: return
+        val active = currentState().activeFile ?: return
+        requestScrollTo(active.content, line, 1)
+    }
+
+    override fun onJumpToLine(line: Int) {
+        val active = currentState().activeFile ?: return
+        requestScrollTo(active.content, line, 1)
+    }
+
+    override fun onShowRecent(show: Boolean) {
+        updateState { it.copy(recentVisible = show) }
+    }
+
+    override fun onOpenRecent(path: String) {
+        updateState { it.copy(recentVisible = false) }
+        val existing = workspace.openFiles.value.firstOrNull { it.path == path }
+        if (existing != null) {
+            onFlushSave()
+            workspace.setActiveFile(path)
+        } else {
+            openFileAt(path, 1, 1)
+        }
     }
 
     override fun onReplaceQueryChange(text: String) {
@@ -455,7 +561,6 @@ class EditorViewModel(
         showSnackBar("Replaced ${state.matches.size} occurrence(s)")
     }
 
-    /** An edit not typed by the user (replace): always gets its own undo snapshot. */
     private fun applyProgrammaticEdit(current: OpenFileState, newText: String) {
         if (current.content == newText) return
         val stack = undoStacks.getOrPut(current.path) { ArrayDeque() }
@@ -463,6 +568,7 @@ class EditorViewModel(
         if (stack.size > UNDO_LIMIT) stack.removeFirst()
         redoStacks[current.path]?.clear()
         lastEditPath = null
+        markEditedSinceBuild(current)
         setActiveContent(current.path, newText)
         scheduleAutoSave()
     }
@@ -543,5 +649,7 @@ class EditorViewModel(
         const val MAX_MATCHES = 500
         const val MAX_SEARCHABLE_CHARS = 200_000
         const val PROJECT_SEARCH_DEBOUNCE_MS = 350L
+        const val LINT_DEBOUNCE_MS = 450L
+        val GO_TO_LINE_REGEX = Regex("^:(\\d+)$")
     }
 }

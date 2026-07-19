@@ -309,8 +309,7 @@ private fun DeleteProjectDialog(project: Project, listener: ProjectsInteractionL
 
 @Composable
 private fun ImportRepoDialog(state: ProjectsUiState, listener: ProjectsInteractionListener) {
-    // While an import runs the dialog is fully modal: no dismiss (back press and
-    // outside taps are no-ops), no buttons — the user just waits for the result.
+
     val importingRepo = state.importingRepo
     if (importingRepo != null) {
         AslDialog(

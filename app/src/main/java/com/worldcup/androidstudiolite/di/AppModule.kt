@@ -15,10 +15,12 @@ import com.worldcup.androidstudiolite.domain.git.GetCommitsUseCase
 import com.worldcup.androidstudiolite.domain.git.PullProjectUseCase
 import com.worldcup.androidstudiolite.domain.project.CreateProjectUseCase
 import com.worldcup.androidstudiolite.domain.project.DeleteProjectUseCase
+import com.worldcup.androidstudiolite.domain.project.GetLastProjectUseCase
 import com.worldcup.androidstudiolite.domain.project.GetProjectsUseCase
 import com.worldcup.androidstudiolite.domain.project.ImportRepoUseCase
 import com.worldcup.androidstudiolite.domain.project.ListImportableReposUseCase
 import com.worldcup.androidstudiolite.domain.project.RepairProjectInfrastructureUseCase
+import com.worldcup.androidstudiolite.domain.project.SaveLastProjectUseCase
 import com.worldcup.androidstudiolite.domain.settings.CompleteOnboardingUseCase
 import com.worldcup.androidstudiolite.domain.settings.DisconnectGitHubUseCase
 import com.worldcup.androidstudiolite.domain.settings.ObserveGitHubConnectionUseCase
@@ -56,6 +58,8 @@ val useCaseModule = module {
     factoryOf(::SearchProjectUseCase)
     factoryOf(::ListImportableReposUseCase)
     factoryOf(::ImportRepoUseCase)
+    factoryOf(::SaveLastProjectUseCase)
+    factoryOf(::GetLastProjectUseCase)
     factoryOf(::ConnectGitHubUseCase)
     factoryOf(::EnsureOwnerUseCase)
     factoryOf(::GetCommitsUseCase)

@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.worldcup.androidstudiolite.designsystem.components.basic.AslHorizontalDivider
 import com.worldcup.androidstudiolite.designsystem.foundation.AslIcon
@@ -29,6 +30,8 @@ data class AslTab(
     val title: String,
     val modified: Boolean = false,
     val closeable: Boolean = true,
+    val badge: String? = null,
+    val badgeColor: Color? = null,
 )
 
 @Composable
@@ -63,6 +66,13 @@ fun AslTabRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
+                        if (tab.badge != null) {
+                            AslText(
+                                text = tab.badge,
+                                style = AslTheme.typography.uiLabelSmall,
+                                color = tab.badgeColor ?: AslTheme.colors.onSurfaceVariant,
+                            )
+                        }
                         if (tab.modified) {
                             Box(
                                 Modifier

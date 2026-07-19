@@ -6,7 +6,6 @@ import com.worldcup.androidstudiolite.domain.repository.ProjectRepository
 import com.worldcup.androidstudiolite.entities.Project
 import com.worldcup.androidstudiolite.entities.RemoteRepo
 
-/** The user's GitHub repos that aren't already imported as local projects. */
 class ListImportableReposUseCase(
     private val github: GitHubRepository,
     private val projects: ProjectRepository,
@@ -17,11 +16,6 @@ class ListImportableReposUseCase(
     }
 }
 
-/**
- * Clone a GitHub repo into a local project: create the folder + metadata,
- * pull the repo tree, detect the package name from its Gradle files, and
- * inject the known-good CI workflow + debug keystore so Run works.
- */
 class ImportRepoUseCase(
     private val github: GitHubRepository,
     private val projects: ProjectRepository,
