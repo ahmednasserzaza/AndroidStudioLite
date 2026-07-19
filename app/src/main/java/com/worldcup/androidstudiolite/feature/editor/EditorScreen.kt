@@ -244,6 +244,7 @@ fun EditorScreen(
             if (active != null) {
                 BreadcrumbBar(
                     relativePath = active.relativePath,
+                    branch = state.branch,
                     onNavigate = { if (!state.treeVisible) listener.onToggleTree() },
                 )
             }
@@ -353,33 +354,46 @@ fun EditorScreen(
 }
 
 @Composable
-private fun BreadcrumbBar(relativePath: String, onNavigate: () -> Unit) {
+private fun BreadcrumbBar(relativePath: String, branch: String, onNavigate: () -> Unit) {
     val segments = relativePath.split('/')
     Row(
         Modifier
             .fillMaxWidth()
             .background(AslTheme.colors.panel)
-            .horizontalScroll(rememberScrollState())
             .padding(horizontal = AslTheme.spacing.sm, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        segments.forEachIndexed { index, segment ->
-            val isLast = index == segments.lastIndex
-            AslText(
-                segment,
-                style = AslTheme.typography.uiLabelSmall,
-                color = if (isLast) AslTheme.colors.onSurface else AslTheme.colors.onSurfaceVariant,
-                maxLines = 1,
-                modifier = Modifier.clickable(onClick = onNavigate),
-            )
-            if (!isLast) {
-                AslIcon(
-                    AslIcons.ChevronRight,
-                    size = 12.dp,
-                    tint = AslTheme.colors.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 2.dp),
+        Row(
+            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            segments.forEachIndexed { index, segment ->
+                val isLast = index == segments.lastIndex
+                AslText(
+                    segment,
+                    style = AslTheme.typography.uiLabelSmall,
+                    color = if (isLast) AslTheme.colors.onSurface else AslTheme.colors.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.clickable(onClick = onNavigate),
                 )
+                if (!isLast) {
+                    AslIcon(
+                        AslIcons.ChevronRight,
+                        size = 12.dp,
+                        tint = AslTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 2.dp),
+                    )
+                }
             }
+        }
+        if (branch.isNotEmpty()) {
+            AslText(
+                "⎇ $branch",
+                style = AslTheme.typography.uiLabelSmall,
+                color = AslTheme.colors.primary,
+                maxLines = 1,
+                modifier = Modifier.padding(start = AslTheme.spacing.sm),
+            )
         }
     }
 }

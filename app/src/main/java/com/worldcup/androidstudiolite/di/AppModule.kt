@@ -8,10 +8,22 @@ import com.worldcup.androidstudiolite.domain.files.ReadFileUseCase
 import com.worldcup.androidstudiolite.domain.files.RenameFileEntryUseCase
 import com.worldcup.androidstudiolite.domain.files.SaveFileUseCase
 import com.worldcup.androidstudiolite.domain.files.SearchProjectUseCase
+import com.worldcup.androidstudiolite.domain.git.CheckoutBranchUseCase
 import com.worldcup.androidstudiolite.domain.git.CommitAndPushUseCase
 import com.worldcup.androidstudiolite.domain.git.ConnectGitHubUseCase
+import com.worldcup.androidstudiolite.domain.git.CreateBranchUseCase
+import com.worldcup.androidstudiolite.domain.git.CreatePullRequestUseCase
+import com.worldcup.androidstudiolite.domain.git.DeleteBranchUseCase
+import com.worldcup.androidstudiolite.domain.git.DiscardFileChangeUseCase
 import com.worldcup.androidstudiolite.domain.git.EnsureOwnerUseCase
+import com.worldcup.androidstudiolite.domain.git.GetBranchChecksUseCase
+import com.worldcup.androidstudiolite.domain.git.GetBranchStatusUseCase
+import com.worldcup.androidstudiolite.domain.git.GetCommitDetailUseCase
 import com.worldcup.androidstudiolite.domain.git.GetCommitsUseCase
+import com.worldcup.androidstudiolite.domain.git.GetLocalChangesUseCase
+import com.worldcup.androidstudiolite.domain.git.ListBranchesUseCase
+import com.worldcup.androidstudiolite.domain.git.ListPullRequestsUseCase
+import com.worldcup.androidstudiolite.domain.git.MergePullRequestUseCase
 import com.worldcup.androidstudiolite.domain.git.PullProjectUseCase
 import com.worldcup.androidstudiolite.domain.project.CreateProjectUseCase
 import com.worldcup.androidstudiolite.domain.project.DeleteProjectUseCase
@@ -65,6 +77,18 @@ val useCaseModule = module {
     factoryOf(::GetCommitsUseCase)
     factoryOf(::CommitAndPushUseCase)
     factoryOf(::PullProjectUseCase)
+    factoryOf(::ListBranchesUseCase)
+    factoryOf(::CreateBranchUseCase)
+    factoryOf(::CheckoutBranchUseCase)
+    factoryOf(::DeleteBranchUseCase)
+    factoryOf(::GetLocalChangesUseCase)
+    factoryOf(::GetBranchStatusUseCase)
+    factoryOf(::GetCommitDetailUseCase)
+    factoryOf(::GetBranchChecksUseCase)
+    factoryOf(::ListPullRequestsUseCase)
+    factoryOf(::CreatePullRequestUseCase)
+    factoryOf(::MergePullRequestUseCase)
+    factoryOf(::DiscardFileChangeUseCase)
     factoryOf(::RunBuildUseCase)
     factoryOf(::ObserveGitHubConnectionUseCase)
     factoryOf(::DisconnectGitHubUseCase)

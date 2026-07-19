@@ -2,6 +2,7 @@ package com.worldcup.androidstudiolite.domain.project
 
 import com.worldcup.androidstudiolite.domain.exception.DomainException
 import com.worldcup.androidstudiolite.domain.repository.ProjectRepository
+import com.worldcup.androidstudiolite.entities.FileChange
 import com.worldcup.androidstudiolite.entities.Project
 import com.worldcup.androidstudiolite.entities.RemoteRepo
 import kotlinx.coroutines.runBlocking
@@ -29,6 +30,13 @@ class CreateProjectUseCaseTest {
         override suspend fun createImportShell(repo: RemoteRepo): Project =
             throw UnsupportedOperationException()
         override suspend fun finalizeImport(project: Project): Project = project
+        override suspend fun setBranch(project: Project, branch: String): Project =
+            project.copy(branch = branch)
+        override suspend fun recordSynced(project: Project) = Unit
+        override suspend fun localChanges(project: Project) = emptyList<FileChange>()
+        override suspend fun clearWorkingTree(project: Project) = Unit
+        override suspend fun restoreFile(project: Project, relativePath: String, bytes: ByteArray) = Unit
+        override suspend fun deleteFile(project: Project, relativePath: String) = Unit
     }
 
     private val useCase = CreateProjectUseCase(repository)

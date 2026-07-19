@@ -72,6 +72,7 @@ class EditorViewModel(
                     }
                     it.copy(
                         projectName = project?.name,
+                        branch = project?.branch.orEmpty(),
                         openFiles = openFiles,
                         activeFile = active,
                         matches = matches,

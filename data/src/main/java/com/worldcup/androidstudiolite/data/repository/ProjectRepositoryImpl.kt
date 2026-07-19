@@ -3,6 +3,7 @@ package com.worldcup.androidstudiolite.data.repository
 import com.worldcup.androidstudiolite.data.local.fs.ProjectFileSystemDataSource
 import com.worldcup.androidstudiolite.domain.repository.ProjectFilesRepository
 import com.worldcup.androidstudiolite.domain.repository.ProjectRepository
+import com.worldcup.androidstudiolite.entities.FileChange
 import com.worldcup.androidstudiolite.entities.FileNode
 import com.worldcup.androidstudiolite.entities.Project
 import com.worldcup.androidstudiolite.entities.RemoteRepo
@@ -34,6 +35,24 @@ class ProjectRepositoryImpl(
 
     override suspend fun finalizeImport(project: Project): Project =
         withContext(Dispatchers.IO) { fs.finalizeImport(project) }
+
+    override suspend fun setBranch(project: Project, branch: String): Project =
+        withContext(Dispatchers.IO) { fs.setBranch(project, branch) }
+
+    override suspend fun recordSynced(project: Project) =
+        withContext(Dispatchers.IO) { fs.recordSynced(project) }
+
+    override suspend fun localChanges(project: Project): List<FileChange> =
+        withContext(Dispatchers.IO) { fs.localChanges(project) }
+
+    override suspend fun clearWorkingTree(project: Project) =
+        withContext(Dispatchers.IO) { fs.clearWorkingTree(project) }
+
+    override suspend fun restoreFile(project: Project, relativePath: String, bytes: ByteArray) =
+        withContext(Dispatchers.IO) { fs.restoreFile(project, relativePath, bytes) }
+
+    override suspend fun deleteFile(project: Project, relativePath: String) =
+        withContext(Dispatchers.IO) { fs.deleteRelative(project, relativePath) }
 }
 
 class ProjectFilesRepositoryImpl(

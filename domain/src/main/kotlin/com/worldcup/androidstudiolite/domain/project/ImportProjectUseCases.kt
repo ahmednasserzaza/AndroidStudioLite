@@ -26,6 +26,7 @@ class ImportRepoUseCase(
         val shell = projects.createImportShell(repo)
         try {
             github.pullProject(owner, shell)
+            projects.recordSynced(shell)
             val project = projects.finalizeImport(shell)
             projects.repairInfrastructure(project)
             return project

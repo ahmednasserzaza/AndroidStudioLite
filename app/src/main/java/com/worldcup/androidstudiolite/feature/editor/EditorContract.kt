@@ -9,6 +9,7 @@ import com.worldcup.androidstudiolite.session.RecentFile
 
 data class EditorUiState(
     val projectName: String? = null,
+    val branch: String = "",
     val treeVisible: Boolean = false,
     val visibleTree: List<TreeRow> = emptyList(),
     val openFiles: List<OpenFileState> = emptyList(),

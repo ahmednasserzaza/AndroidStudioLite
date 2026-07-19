@@ -1,5 +1,6 @@
 package com.worldcup.androidstudiolite.domain.repository
 
+import com.worldcup.androidstudiolite.entities.FileChange
 import com.worldcup.androidstudiolite.entities.FileNode
 import com.worldcup.androidstudiolite.entities.Project
 import com.worldcup.androidstudiolite.entities.RemoteRepo
@@ -11,6 +12,18 @@ interface ProjectRepository {
     suspend fun deleteProject(project: Project)
 
     suspend fun repairInfrastructure(project: Project)
+
+    suspend fun setBranch(project: Project, branch: String): Project
+
+    suspend fun recordSynced(project: Project)
+
+    suspend fun localChanges(project: Project): List<FileChange>
+
+    suspend fun clearWorkingTree(project: Project)
+
+    suspend fun restoreFile(project: Project, relativePath: String, bytes: ByteArray)
+
+    suspend fun deleteFile(project: Project, relativePath: String)
 
     suspend fun createImportShell(repo: RemoteRepo): Project
 

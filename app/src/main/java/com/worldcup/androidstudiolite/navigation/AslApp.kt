@@ -121,6 +121,7 @@ fun AslApp(onboarded: Boolean, startInEditor: Boolean = false) {
                     VcsScreen(
                         viewModel = koinViewModel(),
                         onNavigateToProjects = { switchTab("projects") },
+                        onNavigateToEditor = { switchTab("editor") },
                     )
                 }
                 entry<GitHubSettingsKey> {

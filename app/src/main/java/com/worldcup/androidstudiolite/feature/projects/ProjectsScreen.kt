@@ -204,6 +204,7 @@ private fun ProjectCard(project: Project, listener: ProjectsInteractionListener)
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(AslTheme.spacing.xs)) {
+                    AslChip("⎇ ${project.branch}")
                     AslChip("Kotlin")
                     AslChip("Compose")
                 }

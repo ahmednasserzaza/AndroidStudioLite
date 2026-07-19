@@ -4,12 +4,15 @@ import android.content.Context
 import com.worldcup.androidstudiolite.data.local.templates.ProjectTemplates
 import com.worldcup.androidstudiolite.domain.exception.DomainException
 import com.worldcup.androidstudiolite.domain.project.CreateProjectUseCase
+import com.worldcup.androidstudiolite.entities.ChangeStatus
+import com.worldcup.androidstudiolite.entities.FileChange
 import com.worldcup.androidstudiolite.entities.FileNode
 import com.worldcup.androidstudiolite.entities.Project
 import com.worldcup.androidstudiolite.entities.RemoteRepo
 import com.worldcup.androidstudiolite.entities.SearchMatch
 import org.json.JSONObject
 import java.io.File
+import java.security.MessageDigest
 
 class ProjectFileSystemDataSource(context: Context) {
 
@@ -90,7 +93,10 @@ class ProjectFileSystemDataSource(context: Context) {
         val nodes = mutableListOf<FileNode>()
         fun visit(dir: File, depth: Int) {
             val children = dir.listFiles()
-                ?.filter { it.name !in HIDDEN_DIRS && it.name != ProjectTemplates.META_FILE }
+                ?.filter {
+                    it.name !in HIDDEN_DIRS && it.name != ProjectTemplates.META_FILE &&
+                        it.name != SYNC_FILE
+                }
                 ?.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
                 ?: return
             for (child in children) {
@@ -144,6 +150,80 @@ class ProjectFileSystemDataSource(context: Context) {
         File(path).deleteRecursively()
     }
 
+    fun setBranch(project: Project, branch: String): Project {
+        val updated = project.copy(branch = branch)
+        writeMeta(updated)
+        return updated
+    }
+
+    fun recordSynced(project: Project) {
+        val json = JSONObject()
+        computeHashes(project).forEach { (path, hash) -> json.put(path, hash) }
+        File(project.path, SYNC_FILE).writeText(json.toString())
+    }
+
+    fun localChanges(project: Project): List<FileChange> {
+        val current = computeHashes(project)
+        val synced = readSyncedHashes(project)
+        val changes = mutableListOf<FileChange>()
+        current.forEach { (path, hash) ->
+            when {
+                path !in synced -> changes += FileChange(path, ChangeStatus.Added)
+                synced[path] != hash -> changes += FileChange(path, ChangeStatus.Modified)
+            }
+        }
+        synced.keys.filter { it !in current }.forEach {
+            changes += FileChange(it, ChangeStatus.Deleted)
+        }
+        return changes.sortedBy { it.relativePath }
+    }
+
+    fun clearWorkingTree(project: Project) {
+        File(project.path).listFiles()?.forEach { child ->
+            if (child.name !in HIDDEN_DIRS &&
+                child.name != ProjectTemplates.META_FILE &&
+                child.name != SYNC_FILE
+            ) {
+                child.deleteRecursively()
+            }
+        }
+    }
+
+    fun restoreFile(project: Project, relativePath: String, bytes: ByteArray) {
+        val target = File(project.path, relativePath)
+        target.parentFile?.mkdirs()
+        target.writeBytes(bytes)
+    }
+
+    fun deleteRelative(project: Project, relativePath: String) {
+        File(project.path, relativePath).deleteRecursively()
+    }
+
+    private fun computeHashes(project: Project): Map<String, String> {
+        val projectDir = File(project.path)
+        val digest = MessageDigest.getInstance("SHA-1")
+        return projectDir.walkTopDown()
+            .onEnter { it.name !in HIDDEN_DIRS }
+            .filter {
+                it.isFile && it.name != ProjectTemplates.META_FILE && it.name != SYNC_FILE
+            }
+            .associate { file ->
+                digest.reset()
+                val hash = digest.digest(file.readBytes())
+                    .joinToString("") { b -> "%02x".format(b) }
+                file.relativeTo(projectDir).invariantSeparatorsPath to hash
+            }
+    }
+
+    private fun readSyncedHashes(project: Project): Map<String, String> {
+        val file = File(project.path, SYNC_FILE)
+        if (!file.exists()) return emptyMap()
+        return runCatching {
+            val json = JSONObject(file.readText())
+            json.keys().asSequence().associateWith { json.getString(it) }
+        }.getOrDefault(emptyMap())
+    }
+
     fun searchFiles(project: Project, query: String): List<SearchMatch> {
         val projectDir = File(project.path)
         val matches = mutableListOf<SearchMatch>()
@@ -151,6 +231,7 @@ class ProjectFileSystemDataSource(context: Context) {
             .onEnter { it.name !in HIDDEN_DIRS }
             .filter { file ->
                 file.isFile && file.name != ProjectTemplates.META_FILE &&
+                    file.name != SYNC_FILE &&
                     file.length() <= MAX_SEARCHABLE_BYTES &&
                     (file.extension.lowercase() in TEXT_EXTENSIONS || file.name == ".gitignore")
             }
@@ -208,20 +289,31 @@ class ProjectFileSystemDataSource(context: Context) {
         if (!metaFile.exists()) return null
         return runCatching {
             val json = JSONObject(metaFile.readText())
-            Project(
+            val name = json.getString("name")
+            val storedRepo = json.getString("repoName")
+            val legacyRepo = "asl-${sanitize(name)}"
+            val repoName = if (storedRepo == legacyRepo) {
+                CreateProjectUseCase.repoName(name)
+            } else {
+                storedRepo
+            }
+            val project = Project(
                 id = dir.name,
-                name = json.getString("name"),
+                name = name,
                 packageName = json.getString("packageName"),
-                repoName = json.getString("repoName"),
+                repoName = repoName,
                 path = dir.absolutePath,
                 lastModifiedEpochMs = dir.lastModified(),
                 isPrivate = json.optBoolean("private", true),
                 branch = json.optString("branch", "main").ifBlank { "main" },
             )
+            if (storedRepo == legacyRepo) writeMeta(project)
+            project
         }.getOrNull()
     }
 
     companion object {
+        const val SYNC_FILE = ".aslsync.json"
         val HIDDEN_DIRS = setOf(".git", "build", ".gradle", ".idea")
         private val TEXT_EXTENSIONS =
             setOf("kt", "kts", "java", "xml", "yml", "yaml", "json", "properties", "md", "txt")

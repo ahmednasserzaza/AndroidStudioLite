@@ -183,7 +183,7 @@ class GitHubDataSource(
         owner: String,
         repo: String,
         projectDir: File,
-        excludeName: String,
+        excludeNames: Set<String>,
         message: String,
         force: Boolean = false,
         branch: String = BRANCH,
@@ -192,7 +192,7 @@ class GitHubDataSource(
             .getValue("object").jsonObject.getValue("sha").jsonPrimitive.content
 
         val entries = buildJsonArray {
-            collectFiles(projectDir, excludeName).forEach { file ->
+            collectFiles(projectDir, excludeNames).forEach { file ->
                 val path = file.relativeTo(projectDir).invariantSeparatorsPath
                 add(
                     buildJsonObject {
@@ -246,10 +246,10 @@ class GitHubDataSource(
         PushResult(commitSha = commitSha, pushed = true)
     }
 
-    private fun collectFiles(root: File, excludeName: String): List<File> =
+    private fun collectFiles(root: File, excludeNames: Set<String>): List<File> =
         root.walkTopDown()
             .onEnter { it.name != ".git" && it.name != "build" && it.name != ".gradle" }
-            .filter { it.isFile && it.name != excludeName }
+            .filter { it.isFile && it.name !in excludeNames }
             .toList()
 
     private fun isBinary(file: File): Boolean =
@@ -360,16 +360,105 @@ class GitHubDataSource(
             .getValue("items").jsonArray
     }
 
-    suspend fun listCommits(owner: String, repo: String, limit: Int): JsonArray =
+    suspend fun listCommits(owner: String, repo: String, branch: String, limit: Int): JsonArray =
         withContext(Dispatchers.IO) {
             tryApi(HttpMethod.Get, "/repos/$owner/$repo")
                 ?: return@withContext buildJsonArray { }
             try {
-                api(HttpMethod.Get, "/repos/$owner/$repo/commits?per_page=$limit")
+                api(HttpMethod.Get, "/repos/$owner/$repo/commits?sha=$branch&per_page=$limit")
                     .getValue("items").jsonArray
             } catch (e: DomainException.GitHub) {
-                if ("GitHub 409" in e.message.orEmpty()) buildJsonArray { } else throw e
+                val message = e.message.orEmpty()
+                if ("GitHub 409" in message || "GitHub 404" in message) {
+                    buildJsonArray { }
+                } else {
+                    throw e
+                }
             }
+        }
+
+    suspend fun getRepo(owner: String, repo: String): JsonObject = withContext(Dispatchers.IO) {
+        api(HttpMethod.Get, "/repos/$owner/$repo")
+    }
+
+    suspend fun listBranches(owner: String, repo: String): JsonArray = withContext(Dispatchers.IO) {
+        api(HttpMethod.Get, "/repos/$owner/$repo/branches?per_page=100")
+            .getValue("items").jsonArray
+    }
+
+    suspend fun getBranchSha(owner: String, repo: String, branch: String): String =
+        withContext(Dispatchers.IO) {
+            api(HttpMethod.Get, "/repos/$owner/$repo/git/ref/heads/$branch")
+                .getValue("object").jsonObject.getValue("sha").jsonPrimitive.content
+        }
+
+    suspend fun createBranchRef(owner: String, repo: String, name: String, sha: String): Unit =
+        withContext(Dispatchers.IO) {
+            api(
+                HttpMethod.Post, "/repos/$owner/$repo/git/refs",
+                buildJsonObject {
+                    put("ref", "refs/heads/$name")
+                    put("sha", sha)
+                },
+            )
+        }
+
+    suspend fun deleteBranchRef(owner: String, repo: String, name: String): Unit =
+        withContext(Dispatchers.IO) {
+            api(HttpMethod.Delete, "/repos/$owner/$repo/git/refs/heads/$name")
+        }
+
+    suspend fun compareBranches(owner: String, repo: String, base: String, head: String): JsonObject =
+        withContext(Dispatchers.IO) {
+            api(HttpMethod.Get, "/repos/$owner/$repo/compare/$base...$head")
+        }
+
+    suspend fun getCommit(owner: String, repo: String, sha: String): JsonObject =
+        withContext(Dispatchers.IO) {
+            api(HttpMethod.Get, "/repos/$owner/$repo/commits/$sha")
+        }
+
+    suspend fun listRunsForBranch(owner: String, repo: String, branch: String): JsonArray =
+        withContext(Dispatchers.IO) {
+            api(HttpMethod.Get, "/repos/$owner/$repo/actions/runs?branch=$branch&per_page=50")
+                .getValue("workflow_runs").jsonArray
+        }
+
+    suspend fun listPulls(owner: String, repo: String): JsonArray = withContext(Dispatchers.IO) {
+        api(HttpMethod.Get, "/repos/$owner/$repo/pulls?state=open&per_page=50")
+            .getValue("items").jsonArray
+    }
+
+    suspend fun createPull(
+        owner: String,
+        repo: String,
+        title: String,
+        head: String,
+        base: String,
+    ): JsonObject = withContext(Dispatchers.IO) {
+        api(
+            HttpMethod.Post, "/repos/$owner/$repo/pulls",
+            buildJsonObject {
+                put("title", title)
+                put("head", head)
+                put("base", base)
+            },
+        )
+    }
+
+    suspend fun mergePull(owner: String, repo: String, number: Int): Unit =
+        withContext(Dispatchers.IO) {
+            api(
+                HttpMethod.Put, "/repos/$owner/$repo/pulls/$number/merge",
+                buildJsonObject { put("merge_method", "merge") },
+            )
+        }
+
+    suspend fun getFileContent(owner: String, repo: String, path: String, ref: String): ByteArray =
+        withContext(Dispatchers.IO) {
+            val response = api(HttpMethod.Get, "/repos/$owner/$repo/contents/$path?ref=$ref")
+            val encoded = response.getValue("content").jsonPrimitive.content.replace("\n", "")
+            Base64.getDecoder().decode(encoded)
         }
 
     companion object {
