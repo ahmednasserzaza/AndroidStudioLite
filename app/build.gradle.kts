@@ -51,7 +51,6 @@ android {
 }
 
 dependencies {
-    implementation(project(":entities"))
     implementation(project(":domain"))
     implementation(project(":data"))
     implementation(project(":designsystem"))
