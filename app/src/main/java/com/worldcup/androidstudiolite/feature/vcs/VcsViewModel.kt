@@ -44,7 +44,7 @@ class VcsViewModel(
     private val mergePullRequest: MergePullRequestUseCase,
     private val discardFileChange: DiscardFileChangeUseCase,
     private val workspace: WorkspaceSession,
-) : BaseViewModel<VcsUiState, VcsEffect>(VcsUiState()),
+) : BaseViewModel<VcsScreenState, VcsScreenEffect>(VcsScreenState()),
     VcsInteractionListener {
 
     init {
@@ -276,7 +276,7 @@ class VcsViewModel(
 
     override fun onOpenChange(change: FileChange) {
         workspace.requestOpen(OpenLocation(change.relativePath, 1))
-        sendNewEffect(VcsEffect.NavigateToEditor)
+        sendNewEffect(VcsScreenEffect.NavigateToEditor)
     }
 
     override fun onRequestDiscard(change: FileChange) {

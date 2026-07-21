@@ -6,14 +6,11 @@ import com.worldcup.androidstudiolite.domain.settings.ObserveGitHubConnectionUse
 import com.worldcup.androidstudiolite.feature.base.BaseViewModel
 import kotlinx.coroutines.launch
 
-data class OnboardingUiState(
-    val githubConnected: Boolean = false,
-)
-
 class OnboardingViewModel(
     private val githubConnection: ObserveGitHubConnectionUseCase,
     private val completeOnboarding: CompleteOnboardingUseCase,
-) : BaseViewModel<OnboardingUiState, Unit>(OnboardingUiState()) {
+) : BaseViewModel<OnboardingScreenState, OnboardingScreenEffect>(OnboardingScreenState()),
+    OnboardingInteractionListener {
 
     init {
         viewModelScope.launch {
@@ -23,10 +20,18 @@ class OnboardingViewModel(
         }
     }
 
-    fun complete(onDone: () -> Unit) {
+    override fun onConnectGitHub() {
+        sendNewEffect(OnboardingScreenEffect.NavigateToGitHubSettings)
+    }
+
+    override fun onStartBuilding() = complete()
+
+    override fun onSkip() = complete()
+
+    private fun complete() {
         tryToExecute(
             callee = { completeOnboarding() },
-            onSuccess = { onDone() },
+            onSuccess = { sendNewEffect(OnboardingScreenEffect.NavigateToProjects) },
         )
     }
 }

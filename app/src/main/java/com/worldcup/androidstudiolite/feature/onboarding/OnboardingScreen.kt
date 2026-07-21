@@ -25,6 +25,7 @@ import com.worldcup.androidstudiolite.designsystem.foundation.AslIcon
 import com.worldcup.androidstudiolite.designsystem.foundation.AslText
 import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
+import com.worldcup.androidstudiolite.feature.base.CollectEffects
 
 @Composable
 fun OnboardingScreen(
@@ -33,6 +34,14 @@ fun OnboardingScreen(
     onDone: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val listener: OnboardingInteractionListener = viewModel
+
+    CollectEffects(viewModel.effect) { effect ->
+        when (effect) {
+            OnboardingScreenEffect.NavigateToGitHubSettings -> onConnectGitHub()
+            OnboardingScreenEffect.NavigateToProjects -> onDone()
+        }
+    }
 
     Column(
         Modifier
@@ -52,7 +61,7 @@ fun OnboardingScreen(
         )
         Spacer(Modifier.height(AslTheme.spacing.xl))
 
-        AslInnerCard(Modifier.fillMaxWidth(), onClick = onConnectGitHub) {
+        AslInnerCard(Modifier.fillMaxWidth(), onClick = listener::onConnectGitHub) {
             StepRow(
                 iconRes = AslIcons.GitHub,
                 title = "Connect GitHub",
@@ -64,13 +73,13 @@ fun OnboardingScreen(
         Spacer(Modifier.height(AslTheme.spacing.xl))
         AslPrimaryButton(
             "Start building",
-            onClick = { viewModel.complete(onDone) },
+            onClick = listener::onStartBuilding,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(AslTheme.spacing.sm))
         AslGhostButton(
             "Skip for now",
-            onClick = { viewModel.complete(onDone) },
+            onClick = listener::onSkip,
             modifier = Modifier.fillMaxWidth(),
         )
     }

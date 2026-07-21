@@ -25,7 +25,7 @@ class ProjectsViewModel(
     private val githubConnection: ObserveGitHubConnectionUseCase,
     private val observePrivateRepos: ObservePrivateReposUseCase,
     private val workspace: WorkspaceSession,
-) : BaseViewModel<ProjectsUiState, ProjectsEffect>(ProjectsUiState()),
+) : BaseViewModel<ProjectsScreenState, ProjectsScreenEffect>(ProjectsScreenState()),
     ProjectsInteractionListener {
 
     init {
@@ -55,7 +55,7 @@ class ProjectsViewModel(
     override fun onOpenProject(project: Project) {
         workspace.openProject(project)
         tryToExecute(callee = { saveLastProject(project) })
-        sendNewEffect(ProjectsEffect.NavigateToEditor)
+        sendNewEffect(ProjectsScreenEffect.NavigateToEditor)
     }
 
     override fun onRequestDeleteProject(project: Project) {
@@ -126,5 +126,5 @@ class ProjectsViewModel(
         )
     }
 
-    override fun onConnectGitHub() = sendNewEffect(ProjectsEffect.NavigateToGitHubSettings)
+    override fun onConnectGitHub() = sendNewEffect(ProjectsScreenEffect.NavigateToGitHubSettings)
 }

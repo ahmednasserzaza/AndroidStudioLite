@@ -9,33 +9,13 @@ import com.worldcup.androidstudiolite.domain.settings.SetPrivateReposUseCase
 import com.worldcup.androidstudiolite.feature.base.BaseViewModel
 import kotlinx.coroutines.launch
 
-data class GitHubSettingsUiState(
-    val connected: Boolean = false,
-    val owner: String = "",
-    val tokenInput: String = "",
-    val verifying: Boolean = false,
-    val error: String? = null,
-    val privateRepos: Boolean = true,
-)
-
-sealed interface GitHubSettingsEffect {
-    data object Connected : GitHubSettingsEffect
-}
-
-interface GitHubSettingsInteractionListener {
-    fun onTokenChange(token: String)
-    fun onConnect()
-    fun onDisconnect()
-    fun onPrivateReposChange(enabled: Boolean)
-}
-
 class GitHubSettingsViewModel(
     private val connectGitHub: ConnectGitHubUseCase,
     private val disconnectGitHub: DisconnectGitHubUseCase,
     private val connection: ObserveGitHubConnectionUseCase,
     private val observePrivateRepos: ObservePrivateReposUseCase,
     private val setPrivateRepos: SetPrivateReposUseCase,
-) : BaseViewModel<GitHubSettingsUiState, GitHubSettingsEffect>(GitHubSettingsUiState()),
+) : BaseViewModel<GitHubSettingsScreenState, GitHubSettingsScreenEffect>(GitHubSettingsScreenState()),
     GitHubSettingsInteractionListener {
 
     init {
@@ -74,7 +54,7 @@ class GitHubSettingsViewModel(
                     it.copy(verifying = false, tokenInput = "", owner = account.login)
                 }
                 showSnackBar("Connected as ${account.login}")
-                sendNewEffect(GitHubSettingsEffect.Connected)
+                sendNewEffect(GitHubSettingsScreenEffect.Connected)
             },
             onError = { error ->
                 updateState { it.copy(verifying = false, error = error.message) }

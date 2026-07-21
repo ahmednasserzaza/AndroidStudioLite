@@ -93,8 +93,8 @@ fun EditorScreen(
 
     CollectEffects(viewModel.effect) { effect ->
         when (effect) {
-            EditorEffect.NavigateToBuild -> onNavigateToBuild()
-            EditorEffect.NavigateToProjects -> onNavigateToProjects()
+            EditorScreenEffect.NavigateToBuild -> onNavigateToBuild()
+            EditorScreenEffect.NavigateToProjects -> onNavigateToProjects()
         }
     }
 
@@ -399,7 +399,7 @@ private fun BreadcrumbBar(relativePath: String, branch: String, onNavigate: () -
 }
 
 @Composable
-private fun ProblemBanner(state: EditorUiState, listener: EditorInteractionListener) {
+private fun ProblemBanner(state: EditorScreenState, listener: EditorInteractionListener) {
     val diagnostic = state.diagnostics.firstOrNull()
     val lint = state.lintIssues.firstOrNull()
     val (message, line, color) = when {
@@ -459,7 +459,7 @@ private fun CompletionBar(suggestions: List<String>, onPick: (String) -> Unit) {
 }
 
 @Composable
-private fun RecentFilesDialog(state: EditorUiState, listener: EditorInteractionListener) {
+private fun RecentFilesDialog(state: EditorScreenState, listener: EditorInteractionListener) {
     AslDialog(
         title = "Recent Files",
         onDismissRequest = { listener.onShowRecent(false) },
@@ -501,7 +501,7 @@ private fun RecentFilesDialog(state: EditorUiState, listener: EditorInteractionL
 
 @Composable
 private fun FileTreeDrawer(
-    state: EditorUiState,
+    state: EditorScreenState,
     listener: EditorInteractionListener,
 ) {
     Box(Modifier.fillMaxSize()) {
@@ -538,7 +538,7 @@ private fun FileTreeDrawer(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FileTreePanel(
-    state: EditorUiState,
+    state: EditorScreenState,
     listener: EditorInteractionListener,
     modifier: Modifier = Modifier,
 ) {

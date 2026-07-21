@@ -78,7 +78,7 @@ fun GitHubSettingsScreen(
 
 @Composable
 private fun ConnectCard(
-    state: GitHubSettingsUiState,
+    state: GitHubSettingsScreenState,
     listener: GitHubSettingsInteractionListener,
     onGetToken: () -> Unit,
 ) {
@@ -120,7 +120,7 @@ private fun ConnectCard(
 
 @Composable
 private fun RepoVisibilityCard(
-    state: GitHubSettingsUiState,
+    state: GitHubSettingsScreenState,
     listener: GitHubSettingsInteractionListener,
 ) {
     AslCard(Modifier.fillMaxWidth()) {
@@ -148,7 +148,7 @@ private fun RepoVisibilityCard(
 
 @Composable
 private fun ConnectedCard(
-    state: GitHubSettingsUiState,
+    state: GitHubSettingsScreenState,
     listener: GitHubSettingsInteractionListener,
 ) {
     AslCard(Modifier.fillMaxWidth()) {

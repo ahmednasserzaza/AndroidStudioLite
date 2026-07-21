@@ -68,8 +68,8 @@ fun VcsScreen(
 
     CollectEffects(viewModel.effect) { effect ->
         when (effect) {
-            VcsEffect.NavigateToProjects -> onNavigateToProjects()
-            VcsEffect.NavigateToEditor -> onNavigateToEditor()
+            VcsScreenEffect.NavigateToProjects -> onNavigateToProjects()
+            VcsScreenEffect.NavigateToEditor -> onNavigateToEditor()
         }
     }
 
@@ -178,7 +178,7 @@ fun VcsScreen(
 }
 
 @Composable
-private fun BranchChip(state: VcsUiState, onClick: () -> Unit) {
+private fun BranchChip(state: VcsScreenState, onClick: () -> Unit) {
     Row(
         Modifier
             .background(AslTheme.colors.surfaceContainerHigh, AslTheme.shapes.full)
@@ -206,7 +206,7 @@ private fun BranchChip(state: VcsUiState, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ChangesCard(state: VcsUiState, listener: VcsInteractionListener) {
+private fun ChangesCard(state: VcsScreenState, listener: VcsInteractionListener) {
     AslCard(Modifier.fillMaxWidth(), contentPadding = AslTheme.spacing.md) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AslText(
@@ -297,7 +297,7 @@ private fun ChangeRow(change: FileChange, listener: VcsInteractionListener) {
 @Composable
 private fun PullRequestRow(
     pr: PullRequestInfo,
-    state: VcsUiState,
+    state: VcsScreenState,
     listener: VcsInteractionListener,
 ) {
     AslCard(
@@ -376,7 +376,7 @@ private fun CommitRow(
 }
 
 @Composable
-private fun BranchSheet(state: VcsUiState, listener: VcsInteractionListener) {
+private fun BranchSheet(state: VcsScreenState, listener: VcsInteractionListener) {
     AslBottomSheet(
         visible = state.branchSheetVisible,
         onDismissRequest = { if (!state.branchWorking) listener.onShowBranches(false) },
@@ -423,7 +423,7 @@ private fun BranchSheet(state: VcsUiState, listener: VcsInteractionListener) {
 }
 
 @Composable
-private fun BranchRow(branch: Branch, state: VcsUiState, listener: VcsInteractionListener) {
+private fun BranchRow(branch: Branch, state: VcsScreenState, listener: VcsInteractionListener) {
     val current = branch.name == state.branch
     Row(
         Modifier
@@ -461,7 +461,7 @@ private fun BranchRow(branch: Branch, state: VcsUiState, listener: VcsInteractio
 }
 
 @Composable
-private fun NewBranchDialog(state: VcsUiState, listener: VcsInteractionListener) {
+private fun NewBranchDialog(state: VcsScreenState, listener: VcsInteractionListener) {
     var name by remember { mutableStateOf("") }
     AslDialog(
         title = "New Branch",
@@ -499,7 +499,7 @@ private fun NewBranchDialog(state: VcsUiState, listener: VcsInteractionListener)
 @Composable
 private fun CheckoutBlockedDialog(
     target: String,
-    state: VcsUiState,
+    state: VcsScreenState,
     listener: VcsInteractionListener,
 ) {
     AslDialog(
@@ -519,7 +519,7 @@ private fun CheckoutBlockedDialog(
 }
 
 @Composable
-private fun PullBlockedDialog(state: VcsUiState, listener: VcsInteractionListener) {
+private fun PullBlockedDialog(state: VcsScreenState, listener: VcsInteractionListener) {
     AslDialog(
         title = "Overwrite local changes?",
         onDismissRequest = listener::onDismissPull,
@@ -559,7 +559,7 @@ private fun DiscardDialog(change: FileChange, listener: VcsInteractionListener) 
 }
 
 @Composable
-private fun CreatePrDialog(state: VcsUiState, listener: VcsInteractionListener) {
+private fun CreatePrDialog(state: VcsScreenState, listener: VcsInteractionListener) {
     var title by remember {
         mutableStateOf(state.commits.firstOrNull()?.message ?: "")
     }
@@ -596,7 +596,7 @@ private fun CreatePrDialog(state: VcsUiState, listener: VcsInteractionListener) 
 }
 
 @Composable
-private fun CommitDetailDialog(state: VcsUiState, listener: VcsInteractionListener) {
+private fun CommitDetailDialog(state: VcsScreenState, listener: VcsInteractionListener) {
     AslDialog(
         title = state.commitDetail?.let { "${it.sha}  ${it.message.lineSequence().first()}" }
             ?: "Loading…",

@@ -34,7 +34,7 @@ class EditorViewModel(
     private val searchProject: SearchProjectUseCase,
     private val workspace: WorkspaceSession,
     private val buildSession: BuildSession,
-) : BaseViewModel<EditorUiState, EditorEffect>(EditorUiState()),
+) : BaseViewModel<EditorScreenState, EditorScreenEffect>(EditorScreenState()),
     EditorInteractionListener {
 
     private var fullTree: List<FileNode> = emptyList()
@@ -620,7 +620,7 @@ class EditorViewModel(
     override fun onRun() {
         val project = workspace.currentProject.value ?: return
         if (buildSession.isRunning) {
-            sendNewEffect(EditorEffect.NavigateToBuild)
+            sendNewEffect(EditorScreenEffect.NavigateToBuild)
             return
         }
         tryToExecute(
@@ -633,7 +633,7 @@ class EditorViewModel(
             },
             onSuccess = {
                 buildSession.start(project)
-                sendNewEffect(EditorEffect.NavigateToBuild)
+                sendNewEffect(EditorScreenEffect.NavigateToBuild)
             },
         )
     }

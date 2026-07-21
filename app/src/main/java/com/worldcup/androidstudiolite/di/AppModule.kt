@@ -39,6 +39,7 @@ import com.worldcup.androidstudiolite.domain.settings.ObserveGitHubConnectionUse
 import com.worldcup.androidstudiolite.domain.settings.ObserveOnboardingUseCase
 import com.worldcup.androidstudiolite.domain.settings.ObservePrivateReposUseCase
 import com.worldcup.androidstudiolite.domain.settings.SetPrivateReposUseCase
+import com.worldcup.androidstudiolite.feature.build.BuildViewModel
 import com.worldcup.androidstudiolite.feature.editor.EditorViewModel
 import com.worldcup.androidstudiolite.feature.onboarding.OnboardingViewModel
 import com.worldcup.androidstudiolite.feature.projects.ProjectsViewModel
@@ -104,4 +105,5 @@ val appModule = module {
     viewModelOf(::VcsViewModel)
     viewModelOf(::GitHubSettingsViewModel)
     viewModelOf(::OnboardingViewModel)
+    viewModelOf(::BuildViewModel)
 }

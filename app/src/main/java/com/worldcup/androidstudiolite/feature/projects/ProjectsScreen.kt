@@ -62,8 +62,8 @@ fun ProjectsScreen(
 
     CollectEffects(viewModel.effect) { effect ->
         when (effect) {
-            ProjectsEffect.NavigateToEditor -> onNavigateToEditor()
-            ProjectsEffect.NavigateToGitHubSettings -> onNavigateToSettings()
+            ProjectsScreenEffect.NavigateToEditor -> onNavigateToEditor()
+            ProjectsScreenEffect.NavigateToGitHubSettings -> onNavigateToSettings()
         }
     }
 
@@ -141,7 +141,7 @@ fun ProjectsScreen(
 }
 
 @Composable
-private fun WelcomeCard(state: ProjectsUiState, listener: ProjectsInteractionListener) {
+private fun WelcomeCard(state: ProjectsScreenState, listener: ProjectsInteractionListener) {
     AslCard(Modifier.fillMaxWidth()) {
         AslText("Welcome to Studio Lite", style = AslTheme.typography.displaySmall)
         Spacer(Modifier.height(AslTheme.spacing.sm))
@@ -309,7 +309,7 @@ private fun DeleteProjectDialog(project: Project, listener: ProjectsInteractionL
 }
 
 @Composable
-private fun ImportRepoDialog(state: ProjectsUiState, listener: ProjectsInteractionListener) {
+private fun ImportRepoDialog(state: ProjectsScreenState, listener: ProjectsInteractionListener) {
 
     val importingRepo = state.importingRepo
     if (importingRepo != null) {

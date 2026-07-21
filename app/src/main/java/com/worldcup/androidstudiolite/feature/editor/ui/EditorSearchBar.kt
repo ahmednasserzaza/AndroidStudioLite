@@ -26,11 +26,11 @@ import com.worldcup.androidstudiolite.designsystem.foundation.AslText
 import com.worldcup.androidstudiolite.designsystem.icons.AslIcons
 import com.worldcup.androidstudiolite.designsystem.theme.AslTheme
 import com.worldcup.androidstudiolite.feature.editor.EditorInteractionListener
-import com.worldcup.androidstudiolite.feature.editor.EditorUiState
+import com.worldcup.androidstudiolite.feature.editor.EditorScreenState
 
 @Composable
 fun EditorSearchBar(
-    state: EditorUiState,
+    state: EditorScreenState,
     listener: EditorInteractionListener,
     modifier: Modifier = Modifier,
 ) {
@@ -162,7 +162,7 @@ private fun ScopeChip(text: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 fun ProjectSearchResults(
-    state: EditorUiState,
+    state: EditorScreenState,
     listener: EditorInteractionListener,
     modifier: Modifier = Modifier,
 ) {

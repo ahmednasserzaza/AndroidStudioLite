@@ -8,7 +8,7 @@ import com.worldcup.androidstudiolite.entities.CommitDetail
 import com.worldcup.androidstudiolite.entities.FileChange
 import com.worldcup.androidstudiolite.entities.PullRequestInfo
 
-data class VcsUiState(
+data class VcsScreenState(
     val projectName: String? = null,
     val branch: String = "",
     val busy: Boolean = false,
@@ -32,33 +32,3 @@ data class VcsUiState(
     val pullBlocked: Boolean = false,
     val discardTarget: FileChange? = null,
 )
-
-sealed interface VcsEffect {
-    data object NavigateToProjects : VcsEffect
-    data object NavigateToEditor : VcsEffect
-}
-
-interface VcsInteractionListener {
-    fun onRefresh()
-    fun onCommitMessageChange(message: String)
-    fun onCommitAndPush()
-    fun onPull()
-    fun onConfirmPull()
-    fun onDismissPull()
-    fun onShowBranches(show: Boolean)
-    fun onSelectBranch(name: String)
-    fun onConfirmCheckout()
-    fun onDismissCheckout()
-    fun onShowNewBranch(show: Boolean)
-    fun onCreateBranch(name: String)
-    fun onDeleteBranch(name: String)
-    fun onOpenCommit(sha: String)
-    fun onDismissCommit()
-    fun onOpenChange(change: FileChange)
-    fun onRequestDiscard(change: FileChange)
-    fun onConfirmDiscard()
-    fun onDismissDiscard()
-    fun onShowCreatePr(show: Boolean)
-    fun onCreatePr(title: String)
-    fun onMergePr(number: Int)
-}
